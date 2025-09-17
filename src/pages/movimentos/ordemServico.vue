@@ -12,14 +12,15 @@
             <div class="text-h6 text-left mb-3">Filtros</div>
             <v-form @submit.prevent="onFilter">
               <v-row align="start" justify="start">
-                <v-col cols="12" md="4">
-                  <v-text-field 
-                    label="Ticket" 
-                    variant="outlined"
-                    v-model="ticket"
-                    density="compact"
-                  ></v-text-field>
-                </v-col>
+                  <!-- Ordem de Serviço -->
+                  <v-col cols="12" md="4">
+                    <v-text-field 
+                      label="Ordem de Serviço" 
+                      variant="outlined"
+                      v-model="ordemServico"
+                      density="compact"
+                    ></v-text-field>
+                  </v-col>
                 <v-col cols="12" md="4">
                   <v-text-field 
                     label="Data Inicial" 
@@ -38,6 +39,25 @@
                     density="compact"
                   ></v-text-field>
                 </v-col>
+                  <!-- Tag -->
+                  <v-col cols="12" md="4">
+                    <v-text-field 
+                      label="Tag" 
+                      variant="outlined"
+                      v-model="tag"
+                      density="compact"
+                    ></v-text-field>
+                  </v-col>
+                  <!-- Em Aberto (Select) -->
+                  <v-col cols="12" md="4">
+                    <v-select
+                      label="Em Aberto"
+                      variant="outlined"
+                      v-model="emAberto"
+                      :items="emAbertoOptions"
+                      density="compact"
+                    ></v-select>
+                  </v-col>
               </v-row>
               <v-row class="justify-center mt-2">
                 <v-btn 
@@ -54,14 +74,23 @@
           </div>
 
           <!-- Componente da Tabela -->
-          <TableGuia
+          <OrdemServTable
             :dados="dados"
+            :dados-completos="dadosCompletos"
             :headers="headers"
-            :label-map-completo="labelMapCompleto"
             :loading="loading"
             :mostrar-tabela="mostrarTabela"
             v-model:busca="busca"
             @atualizar="onFilter"
+            @abrir-detalhes="abrirDetalhes"
+          />
+
+          <!-- Modal de Detalhes -->
+          <DetalhesOrdemServico
+            v-model="modalDetalhesVisible"
+            :dados-completos="dadosCompletos"
+            :item-selecionado="itemSelecionado"
+            :loading="loading"
           />
         </v-card-text>
       </v-card>
@@ -72,22 +101,36 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import BasePage from '@/components/BasePage.vue';
-import TableGuia from './components/tableGuia.vue';
-import { z1aJustif } from '../../stores/Consultas/getZ1AJustif';
+import OrdemServTable from './components/ordemServTable.vue';
+import DetalhesOrdemServico from './models/detalhesOrdemServico.vue';
+import { getOE } from '../../stores/Consultas/getOE';
 
-const apiStore = z1aJustif();
+const OEStore = getOE();
 
 const dados = ref([]);
+const dadosCompletos = ref([]); // Armazena todos os dados da API
 const headers = ref([]);
-const labelMapCompleto = ref([]);
 const loading = ref(false);
 const busca = ref('');
 const mostrarTabela = ref(false);
 
+// Modal de detalhes
+const modalDetalhesVisible = ref(false);
+const itemSelecionado = ref({});
+
 // Campos do filtro
-const ticket = ref('');
 const dataInicial = ref('');
 const dataFinal = ref('');
+const ordemServico = ref('');
+const tag = ref('');
+const emAberto = ref('');
+const emAbertoOptions = [
+  { title: 'Selecione', value: '' },
+  { title: 'Em aberto', value: 'AB' },
+  { title: 'Atendida', value: 'AT' },
+  { title: 'Em atendimento', value: 'EA' },
+  { title: 'Em trânsito', value: 'ET' }
+];
 
 // Função para gerar headers dinâmicos baseados no labelMap da API
 const gerarHeaders = (dadosArray, labelMap = []) => {
@@ -119,7 +162,7 @@ const gerarHeaders = (dadosArray, labelMap = []) => {
   // Fallback: se não tiver labelMap, usa o método anterior
   const primeiroItem = dadosArray[0];
   return Object.keys(primeiroItem).map(key => ({
-    title: formatarTituloColuna(key),
+    title: key.toUpperCase(), // Formatação simples do título
     key: key,
     align: 'start',
     sortable: true
@@ -128,8 +171,8 @@ const gerarHeaders = (dadosArray, labelMap = []) => {
 
 // Função para filtrar e carregar dados da API
 const onFilter = async () => {
-  // Validação básica
-  if (!ticket.value && !dataInicial.value && !dataFinal.value) {
+  // Validação básica: pelo menos um campo preenchido
+  if (!dataInicial.value && !dataFinal.value && !ordemServico.value && !tag.value && !emAberto.value) {
     alert('Preencha pelo menos um campo do filtro');
     return;
   }
@@ -137,50 +180,59 @@ const onFilter = async () => {
   loading.value = true;
   try {
     // Prepara os parâmetros para a API
-    const params = {
-      ticket: ticket.value || '',
-      dataIni: dataInicial.value ? dataInicial.value.replace(/-/g, '') : '', // Converte YYYY-MM-DD para YYYYMMDD
-      dataFim: dataFinal.value ? dataFinal.value.replace(/-/g, '') : '', // Converte YYYY-MM-DD para YYYYMMDD
-      usuario: localStorage.getItem('user')
-    };
+      const params = {
+        dataIni: dataInicial.value ? dataInicial.value.replace(/-/g, '') : '',
+        dataFim: dataFinal.value ? dataFinal.value.replace(/-/g, '') : '',
+        optck: ordemServico.value || '',
+        tagBag: tag.value || '',
+        status: emAberto.value || '',
+        salto: "0",
+        regPPagina: "9999"
+      };
 
     console.log('Parâmetros enviados para a API:', params);
 
-    const response = await apiStore.z1aJustif(params);
+    const response = await OEStore.getOE(params);
     console.log('Dados recebidos da API:', response);
     
     if (Array.isArray(response)) {
+      dadosCompletos.value = response; // Armazena todos os dados
       dados.value = response;
       headers.value = gerarHeaders(response);
-      labelMapCompleto.value = []; // Não tem labelMap neste caso
     } else if (response && Array.isArray(response.data)) {
+      dadosCompletos.value = response.data; // Armazena todos os dados
       dados.value = response.data;
       headers.value = gerarHeaders(response.data, response.labelMap);
-      labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
-    } else if (response && Array.isArray(response.listTicket)) {
-      // Trata o caso específico da API getZ1AJustif que retorna listTicket
-      dados.value = response.listTicket;
-      headers.value = gerarHeaders(response.listTicket, response.labelMap);
-      labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
+    } else if (response && Array.isArray(response.listOE)) {
+      // Trata o caso específico da API getOE que retorna listOE
+      dadosCompletos.value = response.listOE; // Armazena todos os dados
+      dados.value = response.listOE;
+      headers.value = gerarHeaders(response.listOE, response.labelMap);
       console.log('LabelMap recebido:', response.labelMap);
-      console.log('LabelMap completo armazenado:', labelMapCompleto.value);
       console.log('Headers gerados:', headers.value);
     } else {
       console.warn('Formato de dados inesperado:', response);
+      dadosCompletos.value = [];
       dados.value = [];
       headers.value = [];
-      labelMapCompleto.value = [];
     }
     
     mostrarTabela.value = true;
   } catch (error) {
     console.error('Erro ao carregar dados:', error);
+    dadosCompletos.value = [];
     dados.value = [];
     headers.value = [];
     alert('Erro ao carregar dados. Verifique o console para mais detalhes.');
   } finally {
     loading.value = false;
   }
+};
+
+// Função para abrir o modal de detalhes
+const abrirDetalhes = (item) => {
+  itemSelecionado.value = item;
+  modalDetalhesVisible.value = true;
 };
 
 // Função para carregar dados da API (mantida para compatibilidade)

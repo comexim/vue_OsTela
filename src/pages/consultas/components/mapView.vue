@@ -303,6 +303,13 @@ onMounted(() => {
   }
 }
 
+/* Desktop/PC */
+@media (max-width: 1500px) {
+	.base-page {
+    margin-bottom: -1230px;
+	}
+}
+
 /* Animações suaves */
 .color-square {
   transition: all 0.2s ease-in-out;
