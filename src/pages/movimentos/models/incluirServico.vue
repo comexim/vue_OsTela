@@ -100,23 +100,25 @@
               <v-row class="mb-2">
                 <v-col cols="12" md="6">
                   <v-text-field
-                    label="Peso Total (kg)"
+                    label="Peso (kg)"
                     v-model="formData.peso"
-                    readonly
                     variant="outlined"
                     density="compact"
-                    bg-color="grey-lighten-4"
+                    type="number"
+                    step="0.01"
+                    @input="calcularSacasPorPeso"
                     :placeholder="!itemSelecionado ? 'Peso do item selecionado' : ''"
                   />
                 </v-col>
                 <v-col cols="12" md="6">
                   <v-text-field
-                    label="Sacas Totais"
+                    label="Sacas"
                     v-model="formData.sacas"
-                    readonly
                     variant="outlined"
                     density="compact"
-                    bg-color="grey-lighten-4"
+                    type="number"
+                    step="0.01"
+                    @input="calcularPesoPorSacas"
                     :placeholder="!itemSelecionado ? 'Sacas do item selecionado' : ''"
                   />
                 </v-col>
@@ -512,6 +514,12 @@ const itemSelecionado = ref(null);
 
 // Cabeçalhos da tabela de pesquisa
 const headersPesquisa = [
+  {
+    title: 'check',
+    key: 'check',
+    align: 'start',
+    sortable: true
+  },
   {
     title: 'Lote',
     key: 'lote',
@@ -961,33 +969,13 @@ const limparPesquisaTagBag = () => {
  */
 const preencherFormularioComItem = (item) => {
   if (!item) return;
-  
   formData.value.tagBag = item?.tagBag || '';
   formData.value.lote = item?.lote || '';
   formData.value.peso = item?.peso ? item.peso.toString() : '';
-  formData.value.sacas = item?.sacas ? item.sacas.toString() : '';
   formData.value.origem = item?.endereco || '';
   
-  // Tenta extrair bloco e posição do endereço atual
-  if (item?.endereco && item.endereco.length >= 6) {
-    const endereco = item.endereco;
-    const bloco = endereco.substring(0, 3); // Primeiros 3 dígitos
-    
-    // Verifica se o bloco existe nas opções carregadas
-    const blocoEncontrado = opcoesBlocoDestino.value.find(b => b.value === bloco);
-    if (blocoEncontrado) {
-      formData.value.blocoDestino = bloco;
-      onBlocoDestinoChange(); // Atualiza as opções de posição
-      
-      // Define a posição como o endereço completo
-      setTimeout(() => {
-        const posicaoEncontrada = opcoesPosicaoDestino.value.find(p => p.value === endereco);
-        if (posicaoEncontrada) {
-          formData.value.posicaoDestino = endereco;
-        }
-      }, 100);
-    }
-  }
+  // Calcula sacas automaticamente baseado no peso
+  calcularSacasPorPeso();
 };
 
 /**
@@ -1000,6 +988,34 @@ const getStatusColor = (status) => {
     case 'BL': return 'error';
     case 'DP': return 'info';
     default: return 'grey';
+  }
+};
+
+// ===== FUNÇÕES DE CÁLCULO PESO/SACAS =====
+
+/**
+ * Calcula sacas baseado no peso (Peso / 59)
+ */
+const calcularSacasPorPeso = () => {
+  const peso = parseFloat(formData.value.peso);
+  if (!isNaN(peso) && peso > 0) {
+    const sacas = peso / 59;
+    formData.value.sacas = sacas.toFixed(2);
+  } else if (formData.value.peso === '' || formData.value.peso === null) {
+    formData.value.sacas = '';
+  }
+};
+
+/**
+ * Calcula peso baseado nas sacas (Sacas * 59)
+ */
+const calcularPesoPorSacas = () => {
+  const sacas = parseFloat(formData.value.sacas);
+  if (!isNaN(sacas) && sacas > 0) {
+    const peso = sacas * 59;
+    formData.value.peso = peso.toFixed(2);
+  } else if (formData.value.sacas === '' || formData.value.sacas === null) {
+    formData.value.peso = '';
   }
 };
 

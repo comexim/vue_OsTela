@@ -88,7 +88,7 @@
         <template v-slot:item="{ item }">
           <tr class="table-row-hover cursor-pointer" @click="abrirDetalhes(item)">
             <td v-for="header in headersOrdemServico" :key="header.key" class="table-cell text-left">
-              <span v-if="header.key === 'itOSData'" class="date-value">
+              <span v-if="header.key === 'osdata'" class="date-value">
                 {{ formatDateValue(item[header.key]) }}
               </span>
               <span v-else-if="header.key === 'itOSHora'" class="time-value">
@@ -175,7 +175,7 @@ const headersOrdemServico = computed(() => [
   },
   {
     title: 'Data',
-    key: 'itOSData',
+    key: 'osdata',
     align: 'start',
     sortable: true
   },

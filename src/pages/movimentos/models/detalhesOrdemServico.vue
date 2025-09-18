@@ -27,7 +27,7 @@
               <v-col cols="12" md="4" class="py-1">
                 <v-text-field
                   label="Status"
-                  :model-value="dadosModal.osstatus || '-'"
+                  :model-value="dadosModal.itOSStatus || '-'"
                   readonly
                   variant="outlined"
                   density="compact"
@@ -50,7 +50,7 @@
               <v-col cols="12" md="4" class="py-1">
                 <v-text-field
                   label="Data"
-                  :model-value="formatarData(dadosModal.itOSData)"
+                  :model-value="formatarData(dadosModal.osdata)"
                   readonly
                   variant="outlined"
                   density="compact"
@@ -111,7 +111,15 @@
 
             <!-- Formatação customizada das células -->
             <template v-slot:item="{ item }">
-              <tr>
+              <tr :class="{ 'selected-row': itemSelecionadoTabela?.itOSItem === item.itOSItem }">
+                <td class="text-center">
+                  <v-radio
+                    :model-value="itemSelecionadoTabela?.itOSItem"
+                    :value="item.itOSItem"
+                    color="primary"
+                    @click="selecionarItemTabela(item)"
+                  />
+                </td>
                 <td>{{ item.itOSItem }}</td>
                 <td>
                   <span class="text-green-darken-2">
@@ -133,7 +141,7 @@
                 <td>{{ item.itOsTagBag.slice(-6) }}</td>
                 <td>{{ item.itOsOrigem }}</td>
                 <td>{{ item.itOsDestino }}</td>
-                <td>{{ item.osstatus }}</td>
+                <td>{{ item.itOSStatus }}</td>
               </tr>
             </template>
           </v-data-table>
@@ -149,71 +157,48 @@
         @confirmar="onIncluirServico"
       />
 
-      <v-dialog v-model="modalAlterar" max-width="500px">
-        <v-card>
-          <v-card-title>Modal Alterar</v-card-title>
-          <v-card-text>Conteúdo do modal Alterar</v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn @click="modalAlterar = false">Fechar</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <!-- Modal Alterar Serviço -->
+      <AlterarServico
+        v-model="modalAlterar"
+        :dados-ordem-servico="dadosModal"
+        :dados-completos="dadosCompletos"
+        :item-selecionado="itemSelecionadoTabela"
+        @confirmar="onAlterarConfirmado"
+      />
 
-      <v-dialog v-model="modalExcluir" max-width="500px">
-        <v-card>
-          <v-card-title>Modal Excluir</v-card-title>
-          <v-card-text>Conteúdo do modal Excluir</v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn @click="modalExcluir = false">Fechar</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <!-- Modal Excluir Serviço -->
+      <ExcluirServico
+        v-model="modalExcluir"
+        :dados-ordem-servico="dadosModal"
+        :dados-completos="dadosCompletos"
+        :item-selecionado="itemSelecionadoTabela"
+        @exclusao-concluida="onExclusaoConcluida"
+        @erro-exclusao="onErroExclusao"
+      />
 
-      <v-dialog v-model="modalGravarOrdem" max-width="500px">
-        <v-card>
-          <v-card-title>Modal Gravar Ordem</v-card-title>
-          <v-card-text>Conteúdo do modal Gravar Ordem</v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn @click="modalGravarOrdem = false">Fechar</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <!-- Modal Alterar Destino -->
+      <AlterarDestino
+        v-model="modalAlterarDestino"
+        :dados-ordem-servico="dadosModal"
+        :item-selecionado="itemSelecionadoTabela"
+        @alteracao-concluida="onAlteracaoDestinoConcluida"
+        @erro-alteracao="onErroAlteracaoDestino"
+      />
 
-      <v-dialog v-model="modalAlterarDestino" max-width="500px">
-        <v-card>
-          <v-card-title>Modal Alterar Destino</v-card-title>
-          <v-card-text>Conteúdo do modal Alterar Destino</v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn @click="modalAlterarDestino = false">Fechar</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <!-- Modal Atender Item -->
+      <AtenderItem
+        v-model="modalAtenderItem"
+        :item-selecionado="itemSelecionadoTabela"
+        @atendimento-concluido="onAtendimentoConcluido"
+        @erro-atendimento="onErroAtendimento"
+      />
 
-      <v-dialog v-model="modalAtenderItem" max-width="500px">
-        <v-card>
-          <v-card-title>Modal Atender Item</v-card-title>
-          <v-card-text>Conteúdo do modal Atender Item</v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn @click="modalAtenderItem = false">Fechar</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
-
-      <v-dialog v-model="modalImprimir" max-width="500px">
-        <v-card>
-          <v-card-title>Modal Imprimir</v-card-title>
-          <v-card-text>Conteúdo do modal Imprimir</v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn @click="modalImprimir = false">Fechar</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+      <!-- Modal Imprimir -->
+      <Imprimir
+        v-model="modalImprimir"
+        :dados-completos="dadosCompletos"
+        :item-selecionado="dadosModal"
+      />
 
       <v-card-actions class="pa-3">
         <v-btn
@@ -233,6 +218,7 @@
           prepend-icon="mdi-pencil"
           size="default"
           class="mr-2"
+          :disabled="!itemSelecionadoTabela"
         >
           Alterar
         </v-btn>
@@ -243,18 +229,9 @@
           prepend-icon="mdi-delete"
           size="default"
           class="mr-2"
+          :disabled="!itemSelecionadoTabela"
         >
           Excluir
-        </v-btn>
-        <v-btn
-          color="info"
-          variant="elevated"
-          @click="abrirGravarOrdem"
-          prepend-icon="mdi-content-save"
-          size="default"
-          class="mr-2"
-        >
-          Gravar Ordem
         </v-btn>
         <v-btn
           color="purple"
@@ -304,6 +281,11 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import IncluirServico from './incluirServico.vue';
+import AlterarServico from './alterarServico.vue';
+import ExcluirServico from './excluirServico.vue';
+import AlterarDestino from './alterarDestino.vue';
+import AtenderItem from './atenderItem.vue';
+import Imprimir from './imprimir.vue';
 
 // Props
 const props = defineProps({
@@ -331,18 +313,25 @@ const emit = defineEmits(['update:modelValue']);
 // Data local
 const dialogVisible = ref(props.modelValue);
 const dadosModal = ref({});
+const itemSelecionadoTabela = ref(null); // Item selecionado na tabela para alteração
 
 // Estados dos modais
 const modalIncluir = ref(false);
 const modalAlterar = ref(false);
 const modalExcluir = ref(false);
-const modalGravarOrdem = ref(false);
 const modalAlterarDestino = ref(false);
 const modalAtenderItem = ref(false);
 const modalImprimir = ref(false);
 
 // Headers para a tabela de detalhes
 const headersDetalhes = [
+  {
+    title: 'Selecionar',
+    key: 'selecionar',
+    align: 'center',
+    sortable: false,
+    width: '80px'
+  },
   {
     title: 'Item',
     key: 'itOSItem',
@@ -351,7 +340,7 @@ const headersDetalhes = [
   },
   {
     title: 'Data',
-    key: 'itOSData',
+    key: 'osdata',
     align: 'start',
     sortable: true
   },
@@ -399,7 +388,7 @@ const headersDetalhes = [
   },
   {
     title: 'Status',
-    key: 'osstatus',
+    key: 'itOSStatus',
     align: 'start',
     sortable: true
   }
@@ -502,20 +491,31 @@ const abrirExcluir = () => {
   modalExcluir.value = true;
 };
 
-const abrirGravarOrdem = () => {
-  modalGravarOrdem.value = true;
-};
-
 const abrirAlterarDestino = () => {
   modalAlterarDestino.value = true;
 };
 
 const abrirAtenderItem = () => {
+  if (!itemSelecionadoTabela.value) {
+    alert('Por favor, selecione um item para atender.');
+    return;
+  }
   modalAtenderItem.value = true;
 };
 
 const abrirImprimir = () => {
   modalImprimir.value = true;
+};
+
+// Função para selecionar item na tabela
+const selecionarItemTabela = (item) => {
+  if (itemSelecionadoTabela.value?.itOSItem === item.itOSItem) {
+    // Se clicar no mesmo item, desseleciona
+    itemSelecionadoTabela.value = null;
+  } else {
+    // Seleciona o novo item
+    itemSelecionadoTabela.value = item;
+  }
 };
 
 // Função para lidar com a inclusão de serviço
@@ -529,6 +529,106 @@ const onIncluirServico = (dadosServico) => {
   
   // Opcional: atualizar a lista de itens
   // emit('atualizar-dados');
+};
+
+// Função para lidar com a alteração de serviço
+const onAlterarConfirmado = (dadosServico) => {
+  console.log('Alterando serviço:', dadosServico);
+  // Aqui você pode adicionar a lógica para alterar o serviço
+  // Por exemplo, fazer uma chamada para a API
+  
+  // Fechar o modal
+  modalAlterar.value = false;
+  
+  // Opcional: atualizar a lista de itens
+  // emit('atualizar-dados');
+};
+
+// Função para lidar com exclusão bem-sucedida
+const onExclusaoConcluida = (resultado) => {
+  console.log('Exclusão concluída:', resultado);
+  
+  // Exibir mensagem de sucesso
+  // Você pode adicionar um sistema de notificações aqui
+  alert(`${resultado.sucessos} item(ns) excluído(s) com sucesso!`);
+  
+  // Fechar o modal de exclusão
+  modalExcluir.value = false;
+  
+  // Limpar seleção da tabela
+  itemSelecionadoTabela.value = null;
+  
+  // Opcional: emitir evento para atualizar a lista principal
+  // emit('atualizar-dados');
+};
+
+// Função para lidar com erros na exclusão
+const onErroExclusao = (resultado) => {
+  console.error('Erro na exclusão:', resultado);
+  
+  // Exibir mensagem de erro
+  const mensagem = resultado.erroGeral 
+    ? `Erro geral: ${resultado.erroGeral}`
+    : `${resultado.sucessos} sucessos, ${resultado.erros} erros na exclusão`;
+    
+  alert(`Erro na exclusão: ${mensagem}`);
+  
+  // Opcional: manter modal aberto para permitir nova tentativa
+  // ou fechar dependendo da preferência
+};
+
+// Função para lidar com alteração de destino bem-sucedida
+const onAlteracaoDestinoConcluida = () => {
+  console.log('Alteração de destino concluída');
+  
+  // Exibir mensagem de sucesso
+  alert(`Destino alterado com sucesso!`);
+  
+  // Fechar o modal de alteração de destino
+  modalAlterarDestino.value = false;
+  
+  // Opcional: emitir evento para atualizar a lista principal
+  // emit('atualizar-dados');
+};
+
+// Função para lidar com erros na alteração de destino
+const onErroAlteracaoDestino = (resultado) => {
+  console.error('Erro na alteração de destino:', resultado);
+  
+  // Exibir mensagem de erro
+  const mensagem = resultado.erro || 'Erro desconhecido ao alterar destino';
+  alert(`Erro ao alterar destino: ${mensagem}`);
+  
+  // Opcional: manter modal aberto para permitir nova tentativa
+};
+
+// Função para lidar com atendimento de item bem-sucedido
+const onAtendimentoConcluido = (resultado) => {
+  console.log('Atendimento concluído:', resultado);
+  
+  // Exibir mensagem de sucesso
+  const tipoMovimentacao = resultado.tipo === 'corte' ? 'Corte' : 'Movimentação';
+  alert(`${tipoMovimentacao} realizada com sucesso na posição: ${resultado.posicao}`);
+  
+  // Fechar o modal de atendimento
+  modalAtenderItem.value = false;
+  
+  // Limpar seleção da tabela
+  itemSelecionadoTabela.value = null;
+  
+  // Opcional: emitir evento para atualizar a lista principal
+  // emit('atualizar-dados');
+};
+
+// Função para lidar com erros no atendimento
+const onErroAtendimento = (resultado) => {
+  console.error('Erro no atendimento:', resultado);
+  
+  // Exibir mensagem de erro
+  const mensagem = resultado.erro || 'Erro desconhecido ao realizar atendimento';
+  alert(`Erro no atendimento: ${mensagem}`);
+  
+  // Opcional: manter modal aberto para permitir nova tentativa
 };
 </script>
 
@@ -584,6 +684,15 @@ const onIncluirServico = (dadosServico) => {
 .no-data-container {
   text-align: center;
   padding: 60px 20px;
+}
+
+/* Linha selecionada na tabela */
+.selected-row {
+  background-color: #e3f2fd !important;
+}
+
+.selected-row:hover {
+  background-color: #bbdefb !important;
 }
 
 /* Card de contadores */

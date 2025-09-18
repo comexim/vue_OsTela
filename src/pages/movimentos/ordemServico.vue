@@ -230,9 +230,44 @@ const onFilter = async () => {
 };
 
 // Função para abrir o modal de detalhes
-const abrirDetalhes = (item) => {
-  itemSelecionado.value = item;
-  modalDetalhesVisible.value = true;
+const abrirDetalhes = async (item) => {
+  loading.value = true;
+  try {
+    // Faz uma nova chamada à API com apenas o optck selecionado e status em branco
+    const params = {
+      dataIni: '',
+      dataFim: '',
+      optck: item.opTck || '',
+      tagBag: '',
+      status: '', // Status em branco para trazer todos os itens
+      salto: "0",
+      regPPagina: "9999"
+    };
+
+    console.log('Parâmetros para buscar detalhes:', params);
+
+    const response = await OEStore.getOE(params);
+    console.log('Dados recebidos para detalhes:', response);
+    
+    let dadosDetalhes = [];
+    if (Array.isArray(response)) {
+      dadosDetalhes = response;
+    } else if (response && Array.isArray(response.data)) {
+      dadosDetalhes = response.data;
+    } else if (response && Array.isArray(response.listOE)) {
+      dadosDetalhes = response.listOE;
+    }
+
+    // Atualiza os dados completos com os dados específicos deste optck
+    dadosCompletos.value = dadosDetalhes;
+    itemSelecionado.value = item;
+    modalDetalhesVisible.value = true;
+  } catch (error) {
+    console.error('Erro ao carregar detalhes:', error);
+    alert('Erro ao carregar detalhes. Verifique o console para mais detalhes.');
+  } finally {
+    loading.value = false;
+  }
 };
 
 // Função para carregar dados da API (mantida para compatibilidade)
