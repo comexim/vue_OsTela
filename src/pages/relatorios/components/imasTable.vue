@@ -165,7 +165,7 @@ const emit = defineEmits(['atualizar', 'update:busca']);
 
 // Data local
 const buscaLocal = ref(props.busca);
-const equipOptions = ref('');
+const equipOptions = ref([]);
 
 const cadAuxStore = cadAux();
 
@@ -181,6 +181,7 @@ async function loadCadAux() {
       label: item.cadAuxDescr,
       value: item.cadAuxCod
     }));
+    console.log('CadAux carregado:', equipOptions.value);
   } catch (error) {
     console.error('Erro ao carregar cadAux equip: ', error);
   }
@@ -222,7 +223,6 @@ const isDateField = (fieldKey) => {
 };
 
 const isEquipField = (fieldKey) => {
-  console.log('Verificando campo:', fieldKey);
   const equipFields = ['Equipto', 'equipamento', 'Equip'];
   return equipFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
@@ -236,6 +236,7 @@ const formatNumericValue = (value) => {
 
 const formatEquipamento = (value) => {
   if (!value) return '-';
+  console.log('Formatando equipamento:', value, 'Mapa:', equipMap.value);
   return equipMap.value[value] || value;
 }
 
@@ -303,6 +304,8 @@ const exportarDados = () => {
         } else if (isDateField(header.key)) {
           cellClass = 'date';
           value = formatDateValue(value);
+        } else if (isEquipField(header.key)) {
+          value = formatEquipamento(value);
         }
         
         // Escapa caracteres especiais para HTML

@@ -112,17 +112,35 @@
 					</v-list>
 				</v-card>
 			</v-menu>
+      <p v-if="nomeUsuario" class="nome-usuario">{{ nomeUsuario }}</p>
 		</template>
 	</v-app-bar>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUsers } from '../stores/Auth/AuthLogin';
 import WmsComponent from '../pages/consultas/components/wms.vue';
 
 const router = useRouter();
+const nomeUsuario = ref('');
+
+onMounted(() => {
+  try {
+    const user = localStorage.getItem('user');
+    if (user) {
+      // Tenta fazer o parse, mas usa o valor diretamente se não for JSON
+      const parsedUser = user.startsWith('{') ? JSON.parse(user) : { name: user };
+      nomeUsuario.value = parsedUser?.name || 'Usuário';
+    } else {
+      nomeUsuario.value = 'Usuário';
+    }
+  } catch (e) {
+    console.error("Erro ao acessar o usuário do localStorage:", e);
+    nomeUsuario.value = 'Usuário';
+  }
+});
 
 async function logout() {
   const usersStore = useUsers(); // Inicializa o Store
@@ -136,7 +154,7 @@ const isRightDrawer = ref(false);
 
 // Variáveis para o componente WMS
 const selectedTipo = ref(null);
-const tipoOptions = ['Remoção', 'Despejo'];
+const tipoOptions = ['Remoção','Remoção OP', 'Despejo'];
 
 const Movimentos = [
   ['Ordem de Serviço'],
@@ -203,6 +221,7 @@ function toggleDrawerSide() {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   z-index: 98;
 }
+
 .navbar-content {
   width: 100%;
   display: flex;
@@ -210,6 +229,14 @@ function toggleDrawerSide() {
   align-items: center;
   padding: 0 2rem;
   gap: 1rem;
+}
+
+/* Estilo para o nome do usuário */
+.nome-usuario {
+  font-weight: bold;
+  padding: 30px;
+  margin-top: 15px;
+  font-size: 1.2rem;
 }
 
 .logout-btn {

@@ -4,9 +4,20 @@
       <v-card-title class="pa-1 bg-primary text-white d-flex align-center">
         <h4>Imprimir Ordem de Serviço</h4>
         <v-spacer></v-spacer>
-        <v-btn icon variant="text" @click="fecharModal" size="small">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
+          <v-btn icon variant="text" @click="fecharModal" size="small">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+          <!-- Botão para descer ao rodapé do relatório (não aparece na impressão) -->
+          <v-btn
+            class="ml-2 no-print"
+            icon
+            variant="text"
+            size="small"
+            title="Ir para o rodapé"
+            @click="scrollToFooter"
+          >
+            <v-icon>mdi-arrow-down</v-icon>
+          </v-btn>
       </v-card-title>
 
       <v-card-text class="pa-4">
@@ -14,9 +25,9 @@
         <div ref="printArea" class="print-area">
           <!-- Cabeçalho do relatório -->
           <div class="report-header">
-            <h2 class="text-center mb-4">
-              Relatório da Ordem de Serviço - {{ numeroOrdem }}
-            </h2>
+              <h2 class="text-center mb-4">
+                Relatório da Ordem de Serviço - {{ numeroOrdem }}
+              </h2>
             
             <!-- Linha de informações principais -->
             <div class="info-line mb-4">
@@ -79,7 +90,7 @@
           </div>
 
           <!-- Rodapé com totais -->
-          <div class="report-footer mt-4">
+      <div class="report-footer mt-4" ref="reportFooter">
             <div class="totals-section">
               <div class="totals-items">
                 <div class="total-item totals-title-inline">
@@ -166,6 +177,13 @@ const emit = defineEmits(['update:modelValue']);
 // Data local
 const dialogVisible = ref(props.modelValue);
 const printArea = ref(null);
+const reportFooter = ref(null);
+// Função para rolar até o rodapé do relatório
+const scrollToFooter = () => {
+  if (reportFooter.value) {
+    reportFooter.value.scrollIntoView({ behavior: 'smooth' });
+  }
+};
 
 // Watch para sincronizar o v-model
 watch(() => props.modelValue, (newVal) => {
@@ -249,6 +267,48 @@ const itensAgrupadosPorLote = computed(() => {
   return grupos;
 });
 
+// Computed para agrupar itens por lote (para impressão - sem itens ER)
+const itensAgrupadosPorLoteParaImpressao = computed(() => {
+  const grupos = {};
+  
+  // Filtra itens que não têm status 'ER'
+  const itensFiltrados = itensOrdenados.value.filter(item => item.itOSStatus !== 'ER');
+  
+  itensFiltrados.forEach(item => {
+    const lote = item.lote || 'Sem Lote';
+    
+    if (!grupos[lote]) {
+      grupos[lote] = {
+        itens: [],
+        totalItens: 0,
+        totalQuantidade: 0,
+        totalAtendida: 0
+      };
+    }
+    
+    grupos[lote].itens.push(item);
+    grupos[lote].totalItens++;
+    
+    const peso = parseFloat(item.itOsPeso) || 0;
+    grupos[lote].totalQuantidade += peso;
+    
+    if (item.itOSStatus === 'AT') {
+      grupos[lote].totalAtendida += peso;
+    }
+  });
+  
+  // Ordena os itens dentro de cada lote por itOSItem
+  Object.keys(grupos).forEach(lote => {
+    grupos[lote].itens.sort((a, b) => {
+      const itemA = parseInt(a.itOSItem) || 0;
+      const itemB = parseInt(b.itOSItem) || 0;
+      return itemA - itemB;
+    });
+  });
+  
+  return grupos;
+});
+
 // Computed para total de quantidade
 const totalQuantidade = computed(() => {
   return itensOrdenados.value.reduce((total, item) => {
@@ -266,6 +326,34 @@ const totalAtendida = computed(() => {
     }
     return total;
   }, 0);
+});
+
+// Computed para total de quantidade (para impressão - sem itens ER)
+const totalQuantidadeParaImpressao = computed(() => {
+  return itensOrdenados.value
+    .filter(item => item.itOSStatus !== 'ER')
+    .reduce((total, item) => {
+      const peso = parseFloat(item.itOsPeso) || 0;
+      return total + peso;
+    }, 0);
+});
+
+// Computed para total atendida (para impressão - sem itens ER)
+const totalAtendidaParaImpressao = computed(() => {
+  return itensOrdenados.value
+    .filter(item => item.itOSStatus !== 'ER')
+    .reduce((total, item) => {
+      if (item.itOSStatus === 'AT') {
+        const peso = parseFloat(item.itOsPeso) || 0;
+        return total + peso;
+      }
+      return total;
+    }, 0);
+});
+
+// Computed para total de itens (para impressão - sem itens ER)
+const totalItensParaImpressao = computed(() => {
+  return itensOrdenados.value.filter(item => item.itOSStatus !== 'ER').length;
 });
 
 // Computed para data e hora de impressão
@@ -568,8 +656,8 @@ const generatePrintHTML = () => {
   `;
 
   // Gerar HTML para cada grupo de lote
-  const lotesHTML = Object.keys(itensAgrupadosPorLote.value).map(lote => {
-    const grupo = itensAgrupadosPorLote.value[lote];
+  const lotesHTML = Object.keys(itensAgrupadosPorLoteParaImpressao.value).map(lote => {
+    const grupo = itensAgrupadosPorLoteParaImpressao.value[lote];
     
     const tableRows = grupo.itens.map(item => `
       <tr>
@@ -654,17 +742,18 @@ const generatePrintHTML = () => {
               <strong>Total Geral da Guia:</strong>
             </div>
             <div class="total-item">
-              <strong>Total de Itens:</strong> ${itensOrdenados.value.length}
+              <strong>Total de Itens:</strong> ${totalItensParaImpressao.value}
             </div>
             <div class="total-item">
-              <strong>Quantidade Total:</strong> ${formatarPeso(totalQuantidade.value)} kg
+              <strong>Quantidade Total:</strong> ${formatarPeso(totalQuantidadeParaImpressao.value)} kg
             </div>
             <div class="total-item">
-              <strong>Quantidade Atendida:</strong> ${formatarPeso(totalAtendida.value)} kg
+              <strong>Quantidade Atendida:</strong> ${formatarPeso(totalAtendidaParaImpressao.value)} kg
             </div>
           </div>
           
           <div class="print-info">
+            <div class="total-item"><strong>Projeto Comexim - WMS</strong></div>
             <small>Impresso em ${dataImpressao.value} às ${horaImpressao.value}</small>
           </div>
         </div>

@@ -245,6 +245,41 @@ export const WMSOS = defineStore('WMSOS', {
                 console.error("Falha ao enviar dados para a API cortarBag, verifique!");
                 throw error;
             }
+        },
+
+        async clonarOS(payload) {
+            try {
+                const secretKey = import.meta.env.VITE_SECRET_KEY;
+                const tokenStore = useToken();
+                await tokenStore.getToken();
+
+                const tokenCrp = localStorage.getItem('api_token');
+                const token = CryptoJS.AES.decrypt(tokenCrp, secretKey).toString(CryptoJS.enc.Utf8);
+
+                if(!token) {
+                    console.error("Token não encontrado, verifique!");
+                    return { success: false, message: "Token não encontrado!"};
+                }
+
+                // Monta a query string a partir do payload
+                const queryString = Object.keys(payload)
+                  .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(payload[key])}`)
+                  .join('&');
+
+                const api = mande(`${import.meta.env.VITE_JAVA_API_BASE_URL}/setCloneWMSOS?${queryString}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                })
+
+                const response = await api.post();
+                this.clonarOSData = response;
+                return response;
+            } catch (error) {
+                console.error("Falha ao enviar dados para a API cortarBag, verifique!");
+                throw error;
+            }
         }
     }
 })

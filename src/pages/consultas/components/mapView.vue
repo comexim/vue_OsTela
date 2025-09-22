@@ -304,10 +304,10 @@ onMounted(() => {
 }
 
 /* Desktop/PC */
-@media (max-width: 1500px) {
-	.base-page {
-    margin-bottom: -1230px;
-	}
+@media (min-width: 1200px) {
+	.squares-container {
+    margin-bottom: -100px;
+  }
 }
 
 /* Animações suaves */

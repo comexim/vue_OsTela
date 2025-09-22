@@ -96,33 +96,18 @@
           </v-card-text>
         </v-card>
 
-        <!-- Progress durante exclusão -->
-        <v-card v-if="excluindo" class="mt-4" elevation="2">
-          <v-card-text class="pa-4">
-            <div class="d-flex align-center">
-              <v-progress-circular
-                indeterminate
-                color="error"
-                size="24"
-                class="mr-3"
-              ></v-progress-circular>
-              <div class="flex-grow-1">
-                <p class="mb-1">
-                  <strong>Excluindo item {{ itemAtualExclusao }} de {{ totalItens }}</strong>
-                </p>
-                <v-progress-linear
-                  :model-value="progressoExclusao"
-                  color="error"
-                  height="6"
-                  rounded
-                ></v-progress-linear>
-                <small class="text-grey-darken-1 mt-1">
-                  {{ mensagemProgresso }}
-                </small>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
+        <!-- Mensagem durante exclusão -->
+        <v-alert v-if="excluindo" type="info" class="mt-4">
+          <div class="d-flex align-center">
+            <v-progress-circular
+              indeterminate
+              color="info"
+              size="20"
+              class="mr-3"
+            ></v-progress-circular>
+            <span>Excluindo itens selecionados...</span>
+          </div>
+        </v-alert>
       </v-card-text>
 
       <v-card-actions class="pa-4">
@@ -182,9 +167,6 @@ const emit = defineEmits(['update:modelValue', 'exclusao-concluida', 'erro-exclu
 // Data local
 const dialogVisible = ref(props.modelValue);
 const excluindo = ref(false);
-const itemAtualExclusao = ref(0);
-const totalItens = ref(0);
-const mensagemProgresso = ref('');
 
 // Store
 const wmsos = WMSOS();
@@ -199,33 +181,21 @@ watch(dialogVisible, (newVal) => {
   if (!newVal) {
     // Reset states when closing
     excluindo.value = false;
-    itemAtualExclusao.value = 0;
-    totalItens.value = 0;
-    mensagemProgresso.value = '';
   }
 });
 
 // Computed para obter itens a serem excluídos
 const itensParaExcluir = computed(() => {
-  if (!props.itemSelecionado || !props.dadosCompletos.length) {
-    return [];
+  if (!props.itemSelecionado) return [];
+  // Se vier um array, retorna o array
+  if (Array.isArray(props.itemSelecionado)) {
+    return props.itemSelecionado;
   }
-
-  // Se existe item selecionado na tabela de detalhes, usar apenas esse
-  if (props.itemSelecionado.itOSItem) {
+  // Se vier um único objeto, retorna como array
+  if (props.itemSelecionado && props.itemSelecionado.itOSItem) {
     return [props.itemSelecionado];
   }
-
-  // Caso contrário, usar todos os itens da mesma OS
-  return props.dadosCompletos.filter(item => 
-    item.osid === props.dadosOrdemServico.osid
-  );
-});
-
-// Computed para calcular progresso
-const progressoExclusao = computed(() => {
-  if (totalItens.value === 0) return 0;
-  return (itemAtualExclusao.value / totalItens.value) * 100;
+  return [];
 });
 
 // Funções de formatação
@@ -261,99 +231,36 @@ const confirmarExclusao = async () => {
   }
 
   excluindo.value = true;
-  totalItens.value = itensParaExcluir.value.length;
-  itemAtualExclusao.value = 0;
-
-  const resultados = [];
-  let sucessos = 0;
-  let erros = 0;
 
   try {
-    for (let i = 0; i < itensParaExcluir.value.length; i++) {
-      const item = itensParaExcluir.value[i];
-      itemAtualExclusao.value = i + 1;
-      
-      mensagemProgresso.value = `Excluindo item ${item.itOSItem}...`;
+    // Para cada item selecionado, enviar para a API
+    for (const item of itensParaExcluir.value) {
+      const payload = {
+        osid: item.osid || props.dadosOrdemServico.osid,
+        ositem: item.itOSItem
+      };
 
-      try {
-        // Preparar payload para a API DELOE
-        const payload = {
-          osid: item.osid || props.dadosOrdemServico.osid,
-          ositem: item.itOSItem
-        };
-
-        console.log('Enviando para DELOE:', payload);
-
-        // Chamar a API DELOE
-        const response = await wmsos.DELOE(payload);
-        
-        resultados.push({
-          item: item.itOSItem,
-          sucesso: true,
-          response
-        });
-        
-        sucessos++;
-        mensagemProgresso.value = `Item ${item.itOSItem} excluído com sucesso`;
-        
-        // Pequena pausa para feedback visual
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-      } catch (error) {
-        console.error(`Erro ao excluir item ${item.itOSItem}:`, error);
-        
-        resultados.push({
-          item: item.itOSItem,
-          sucesso: false,
-          erro: error.message || 'Erro desconhecido'
-        });
-        
-        erros++;
-        mensagemProgresso.value = `Erro ao excluir item ${item.itOSItem}`;
-        
-        // Pequena pausa mesmo em caso de erro
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+      console.log('Enviando para DELOE:', payload);
+      await wmsos.DELOE(payload);
     }
 
-    // Mostrar resultado final
-    if (erros === 0) {
-      mensagemProgresso.value = `Todos os ${sucessos} itens foram excluídos com sucesso!`;
-      
-      // Emitir evento de sucesso
-      emit('exclusao-concluida', {
-        sucessos,
-        erros: 0,
-        resultados
-      });
-      
-      // Fechar modal após 2 segundos
-      setTimeout(() => {
-        if (excluindo.value) {
-          fecharModal();
-        }
-      }, 2000);
-      
-    } else {
-      mensagemProgresso.value = `Concluído: ${sucessos} sucessos, ${erros} erros`;
-      
-      // Emitir evento com erros
-      emit('erro-exclusao', {
-        sucessos,
-        erros,
-        resultados
-      });
-    }
+    // Emitir evento de sucesso
+    emit('exclusao-concluida', {
+      sucessos: itensParaExcluir.value.length,
+      erros: 0
+    });
+
+    // Fechar modal
+    fecharModal();
 
   } catch (error) {
-    console.error('Erro geral na exclusão:', error);
-    mensagemProgresso.value = 'Erro geral durante a exclusão';
+    console.error('Erro ao excluir:', error);
     
+    // Emitir evento de erro
     emit('erro-exclusao', {
-      sucessos,
-      erros: erros + 1,
-      resultados,
-      erroGeral: error.message
+      sucessos: 0,
+      erros: 1,
+      erro: error.message || 'Erro ao excluir itens'
     });
   } finally {
     excluindo.value = false;
@@ -382,23 +289,8 @@ const confirmarExclusao = async () => {
   gap: 8px;
 }
 
-/* Animação para o progresso */
-.v-progress-linear {
-  transition: all 0.3s ease;
-}
-
 /* Estilo para chips */
 .v-chip {
   margin: 2px;
-}
-
-/* Loading state */
-.v-progress-circular {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 </style>

@@ -54,49 +54,37 @@
               <p class="mt-4 text-grey">Carregando moegas disponíveis...</p>
             </div>
 
-            <!-- Lista de moegas -->
+            <!-- Seleção de moegas -->
             <div v-else-if="moegasList && moegasList.length > 0">
-              <v-row>
-                <v-col 
-                  v-for="moega in moegasList" 
-                  :key="moega.enderCod"
-                  cols="12" 
-                  sm="6" 
-                  md="4"
-                >
-                  <v-card
-                    :color="moegaSelecionada === moega.enderCod ? 'purple' : 'white'"
-                    :elevation="moegaSelecionada === moega.enderCod ? 8 : 2"
-                    class="moega-card"
-                    hover
-                    @click="selecionarMoega(moega.enderCod)"
-                  >
-                    <v-card-title class="text-center py-3">
-                      <v-icon 
-                        :color="moegaSelecionada === moega.enderCod ? 'white' : 'purple'" 
-                        class="mr-2"
-                      >
-                        mdi-warehouse
-                      </v-icon>
-                      <span :class="moegaSelecionada === moega.enderCod ? 'text-white' : 'text-purple'">
-                        {{ moega.enderCod }}
-                      </span>
-                    </v-card-title>
-                    <v-card-text class="text-center py-2">
-                      <span :class="moegaSelecionada === moega.enderCod ? 'text-white' : 'text-grey-darken-1'">
-                        {{ moega.descricao || 'Moega' }}
-                      </span>
-                    </v-card-text>
-                  </v-card>
-                </v-col>
-              </v-row>
+              <v-select
+                v-model="moegaSelecionada"
+                :items="moegasList"
+                item-title="enderCod"
+                item-value="enderCod"
+                label="Selecione a nova moega de destino"
+                variant="outlined"
+                density="compact"
+                clearable
+                prepend-inner-icon="mdi-warehouse"
+                no-data-text="Nenhuma moega disponível"
+                class="mb-3"
+              >
+                <template v-slot:item="{ props, item }">
+                  <v-list-item v-bind="props">
+                    <template v-slot:prepend>
+                      <v-icon color="purple">mdi-warehouse</v-icon>
+                    </template>
+                    <v-list-item-subtitle>{{ item.raw.descricao }}</v-list-item-subtitle>
+                  </v-list-item>
+                </template>
+              </v-select>
 
               <!-- Informação da seleção -->
               <v-alert 
                 v-if="moegaSelecionada"
                 type="success"
                 variant="tonal"
-                class="mt-4"
+                class="mt-3"
               >
                 <v-icon class="mr-2">mdi-check-circle</v-icon>
                 Moega selecionada: <strong>{{ moegaSelecionada }}</strong>
@@ -109,6 +97,50 @@
               <h3 class="text-grey-darken-1 mb-2">Nenhuma moega disponível</h3>
               <p class="text-grey">Não foi possível carregar as moegas no momento.</p>
             </div>
+          </v-card-text>
+        </v-card>
+
+        <!-- Lista de itens selecionados -->
+        <v-card class="mt-4" elevation="2">
+          <v-card-subtitle class="pa-3 bg-grey-lighten-4">
+            <v-icon class="mr-2">mdi-format-list-bulleted</v-icon>
+            Itens que terão o destino alterado ({{ itensSelecionados.length }})
+          </v-card-subtitle>
+          <v-card-text class="pa-4">
+            <div v-if="itensSelecionados.length === 0" class="text-center py-4">
+              <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-inbox</v-icon>
+              <p class="text-grey">Nenhum item selecionado</p>
+            </div>
+            <v-list v-else class="border rounded">
+              <v-list-item
+                v-for="(item, index) in itensSelecionados"
+                :key="index"
+                class="border-b"
+              >
+                <template v-slot:prepend>
+                  <v-icon color="purple" class="mr-3">mdi-cube-outline</v-icon>
+                </template>
+                <v-list-item-title>
+                  <strong>Item {{ item.itOSItem }}</strong>
+                </v-list-item-title>
+                <v-list-item-subtitle>
+                  <div class="d-flex flex-wrap gap-2 mt-1">
+                    <v-chip size="small" color="info" variant="outlined">
+                      <v-icon start>mdi-weight</v-icon>
+                      {{ formatarPeso(item.itOsPeso) }} kg
+                    </v-chip>
+                    <v-chip size="small" color="success" variant="outlined">
+                      <v-icon start>mdi-tag</v-icon>
+                      {{ item.itOsTagBag?.slice(-6) || '-' }}
+                    </v-chip>
+                    <v-chip size="small" color="warning" variant="outlined">
+                      <v-icon start>mdi-warehouse</v-icon>
+                      De: {{ item.itOsOrigem }} → Para: {{ item.itOsDestino }}
+                    </v-chip>
+                  </div>
+                </v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
           </v-card-text>
         </v-card>
       </v-card-text>
@@ -171,8 +203,9 @@ const props = defineProps({
     default: () => ({})
   },
   itemSelecionado: {
-    type: Object,
-    default: () => ({})
+    // Pode ser array de itens ou objeto único
+    type: [Object, Array],
+    default: () => ([])
   }
 });
 
@@ -201,12 +234,38 @@ watch(() => props.modelValue, (newVal) => {
   if (newVal) {
     carregarMoegas();
     moegaSelecionada.value = null; // Limpa seleção anterior
+    console.log('Modal alterarDestino aberto com itens:', props.itemSelecionado);
   }
 });
 
 watch(dialogVisible, (newVal) => {
   emit('update:modelValue', newVal);
 });
+
+// Computed para processar itens selecionados
+const itensSelecionados = computed(() => {
+  if (!props.itemSelecionado) return [];
+  
+  if (Array.isArray(props.itemSelecionado)) {
+    console.log('Itens selecionados (array):', props.itemSelecionado);
+    return props.itemSelecionado;
+  }
+  
+  if (props.itemSelecionado && props.itemSelecionado.itOSItem) {
+    console.log('Item selecionado (objeto):', props.itemSelecionado);
+    return [props.itemSelecionado];
+  }
+  
+  return [];
+});
+
+// Função para formatação de peso
+const formatarPeso = (value) => {
+  if (value === null || value === undefined || value === '') return '0,00';
+  const num = parseFloat(value);
+  if (isNaN(num)) return value;
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
 // Função para carregar moegas
 const carregarMoegas = async () => {
@@ -231,17 +290,6 @@ const carregarMoegas = async () => {
   }
 };
 
-// Função para selecionar moega
-const selecionarMoega = (enderCod) => {
-  if (moegaSelecionada.value === enderCod) {
-    // Se clicar na mesma moega, desseleciona
-    moegaSelecionada.value = null;
-  } else {
-    // Seleciona a nova moega
-    moegaSelecionada.value = enderCod;
-  }
-};
-
 // Função para confirmar alteração
 const confirmarAlteracao = async () => {
   if (!moegaSelecionada.value) {
@@ -249,60 +297,58 @@ const confirmarAlteracao = async () => {
     return;
   }
 
-  try {
-    loadingAlteracao.value = true;
+  const itens = itensSelecionados.value;
+  console.log('Confirmando alteração para itens:', itens);
 
-    // Monta o payload para a API UPDENDDESTOE
-    const payload = {
-      osid: props.dadosOrdemServico.osid,
-      endereco: moegaSelecionada.value
-    };
-
-    console.log('Enviando alteração de destino:', payload);
-
-    // Chama a API UPDENDDESTOE
-    const response = await wmsosStore.UPDENDDESTOE(payload);
-
-    if (response && response.success !== false) {
-      mostrarMensagem('Destino alterado com sucesso!', 'success');
-      
-      // Emite evento de sucesso
-      emit('alteracao-concluida', {
-        osid: payload.osid,
-        novoDestino: payload.destino,
-        response
-      });
-
-      // Fecha o modal após 1.5 segundos
-      setTimeout(() => {
-        fecharModal();
-      }, 1500);
-    } else {
-      const mensagemErro = response?.message || 'Erro ao alterar destino';
-      mostrarMensagem(mensagemErro, 'error');
-      
-      emit('erro-alteracao', {
-        erro: mensagemErro,
-        payload,
-        response
-      });
-    }
-  } catch (error) {
-    console.error('Erro ao alterar destino:', error);
-    const mensagemErro = error.message || 'Erro interno ao alterar destino';
-    mostrarMensagem(mensagemErro, 'error');
-    
-    emit('erro-alteracao', {
-      erro: mensagemErro,
-      payload: {
-        osid: props.dadosOrdemServico.osid,
-        destino: moegaSelecionada.value
-      },
-      error
-    });
-  } finally {
-    loadingAlteracao.value = false;
+  if (itens.length === 0) {
+    mostrarMensagem('Selecione ao menos um item para alterar o destino', 'warning');
+    return;
   }
+
+  loadingAlteracao.value = true;
+  let sucesso = 0;
+  let erro = 0;
+  let responses = [];
+
+  console.log(`Alterando destino de ${itens.length} itens para: ${moegaSelecionada.value}`);
+
+  for (const item of itens) {
+    try {
+      const payload = {
+        osid: item.osid || props.dadosOrdemServico.osid,
+        ositem: item.itOSItem,
+        endereco: moegaSelecionada.value
+      };
+      
+      console.log('Enviando payload para item:', payload);
+      
+      const response = await wmsosStore.UPDENDDESTOE(payload);
+      responses.push({ item: item.itOSItem, response });
+      if (response && response.success !== false) {
+        sucesso++;
+        console.log(`Item ${item.itOSItem} alterado com sucesso`);
+      } else {
+        erro++;
+        console.log(`Erro ao alterar item ${item.itOSItem}:`, response);
+      }
+    } catch (e) {
+      erro++;
+      console.error(`Exceção ao alterar item ${item.itOSItem}:`, e);
+      responses.push({ item: item.itOSItem, error: e });
+    }
+  }
+
+  if (erro === 0) {
+    mostrarMensagem('Destino alterado com sucesso!', 'success');
+    emit('alteracao-concluida', { sucesso, erro, responses });
+    setTimeout(() => {
+      fecharModal();
+    }, 1500);
+  } else {
+    mostrarMensagem(`${sucesso} sucesso(s), ${erro} erro(s) ao alterar destino`, 'error');
+    emit('erro-alteracao', { sucesso, erro, responses });
+  }
+  loadingAlteracao.value = false;
 };
 
 // Função para fechar o modal
@@ -320,22 +366,10 @@ const mostrarMensagem = (message, color = 'success') => {
 </script>
 
 <style scoped>
-/* Customização dos cards de moega */
-.moega-card {
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-height: 120px;
-}
-
-.moega-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.15);
-}
-
 /* Responsividade */
 @media (max-width: 768px) {
-  .moega-card {
-    min-height: 100px;
+  .v-select {
+    font-size: 14px;
   }
 }
 

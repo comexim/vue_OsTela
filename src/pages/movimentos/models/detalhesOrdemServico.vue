@@ -84,7 +84,7 @@
           <v-data-table
             :headers="headersDetalhes"
             :items="itensOrdenados"
-            :loading="loading"
+            :loading="loading || loadingAtualizacao"
             class="data-table-detalhes"
             :items-per-page="300"
             fixed-header
@@ -111,13 +111,12 @@
 
             <!-- Formatação customizada das células -->
             <template v-slot:item="{ item }">
-              <tr :class="{ 'selected-row': itemSelecionadoTabela?.itOSItem === item.itOSItem }">
+              <tr :class="{ 'selected-row': itensSelecionadosTabela.includes(item) }">
                 <td class="text-center">
-                  <v-radio
-                    :model-value="itemSelecionadoTabela?.itOSItem"
-                    :value="item.itOSItem"
+                  <v-checkbox
+                    :model-value="itensSelecionadosTabela.includes(item)"
+                    @update:modelValue="val => selecionarItemTabela(item, val)"
                     color="primary"
-                    @click="selecionarItemTabela(item)"
                   />
                 </td>
                 <td>{{ item.itOSItem }}</td>
@@ -162,7 +161,7 @@
         v-model="modalAlterar"
         :dados-ordem-servico="dadosModal"
         :dados-completos="dadosCompletos"
-        :item-selecionado="itemSelecionadoTabela"
+  :item-selecionado="itensSelecionadosTabela[0]"
         @confirmar="onAlterarConfirmado"
       />
 
@@ -171,7 +170,7 @@
         v-model="modalExcluir"
         :dados-ordem-servico="dadosModal"
         :dados-completos="dadosCompletos"
-        :item-selecionado="itemSelecionadoTabela"
+  :item-selecionado="itensSelecionadosTabela"
         @exclusao-concluida="onExclusaoConcluida"
         @erro-exclusao="onErroExclusao"
       />
@@ -180,7 +179,7 @@
       <AlterarDestino
         v-model="modalAlterarDestino"
         :dados-ordem-servico="dadosModal"
-        :item-selecionado="itemSelecionadoTabela"
+        :item-selecionado="itensSelecionadosTabela"
         @alteracao-concluida="onAlteracaoDestinoConcluida"
         @erro-alteracao="onErroAlteracaoDestino"
       />
@@ -188,7 +187,7 @@
       <!-- Modal Atender Item -->
       <AtenderItem
         v-model="modalAtenderItem"
-        :item-selecionado="itemSelecionadoTabela"
+  :item-selecionado="itensSelecionadosTabela[0]"
         @atendimento-concluido="onAtendimentoConcluido"
         @erro-atendimento="onErroAtendimento"
       />
@@ -218,7 +217,7 @@
           prepend-icon="mdi-pencil"
           size="default"
           class="mr-2"
-          :disabled="!itemSelecionadoTabela"
+          :disabled="itensSelecionadosTabela.length !== 1"
         >
           Alterar
         </v-btn>
@@ -229,7 +228,7 @@
           prepend-icon="mdi-delete"
           size="default"
           class="mr-2"
-          :disabled="!itemSelecionadoTabela"
+          :disabled="itensSelecionadosTabela.length === 0"
         >
           Excluir
         </v-btn>
@@ -240,6 +239,7 @@
           prepend-icon="mdi-map-marker"
           size="default"
           class="mr-2"
+          :disabled="itensSelecionadosTabela.length === 0"
         >
           Alterar Destino
         </v-btn>
@@ -250,6 +250,7 @@
           prepend-icon="mdi-check-circle"
           size="default"
           class="mr-2"
+          :disabled="itensSelecionadosTabela.length !== 1"
         >
           Atender Item
         </v-btn>
@@ -308,12 +309,13 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'atualizar-dados', 'dados-alterados']);
 
 // Data local
 const dialogVisible = ref(props.modelValue);
 const dadosModal = ref({});
-const itemSelecionadoTabela = ref(null); // Item selecionado na tabela para alteração
+const itensSelecionadosTabela = ref([]); // Itens selecionados na tabela para alteração
+const loadingAtualizacao = ref(false); // Loading para atualização da tabela
 
 // Estados dos modais
 const modalIncluir = ref(false);
@@ -404,6 +406,11 @@ watch(() => props.modelValue, (newVal) => {
 
 watch(dialogVisible, (newVal) => {
   emit('update:modelValue', newVal);
+  
+  // Limpar seleção quando o modal for fechado
+  if (!newVal) {
+    itensSelecionadosTabela.value = [];
+  }
 });
 
 // Computed para filtrar e ordenar itens pelo mesmo osid
@@ -473,8 +480,31 @@ const formatarPeso = (value) => {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+// Função para atualizar dados após operações
+const atualizarDados = async () => {
+  loadingAtualizacao.value = true;
+  try {
+    // Emite evento para o componente pai atualizar os dados
+    emit('atualizar-dados');
+    
+    // Emite evento específico para indicar que dados foram alterados
+    emit('dados-alterados');
+    
+    // Aguarda um tempo para simular carregamento
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Limpar seleção após atualização
+    itensSelecionadosTabela.value = [];
+  } finally {
+    loadingAtualizacao.value = false;
+  }
+};
+
 // Função para fechar o modal
 const fecharModal = () => {
+  // Limpar seleção da tabela
+  itensSelecionadosTabela.value = [];
+  
   dialogVisible.value = false;
 };
 
@@ -496,7 +526,7 @@ const abrirAlterarDestino = () => {
 };
 
 const abrirAtenderItem = () => {
-  if (!itemSelecionadoTabela.value) {
+  if (itensSelecionadosTabela.value.length === 0) {
     alert('Por favor, selecione um item para atender.');
     return;
   }
@@ -508,40 +538,43 @@ const abrirImprimir = () => {
 };
 
 // Função para selecionar item na tabela
-const selecionarItemTabela = (item) => {
-  if (itemSelecionadoTabela.value?.itOSItem === item.itOSItem) {
-    // Se clicar no mesmo item, desseleciona
-    itemSelecionadoTabela.value = null;
+// Função para selecionar/desselecionar itens na tabela
+const selecionarItemTabela = (item, checked) => {
+  if (checked) {
+    if (!itensSelecionadosTabela.value.includes(item)) {
+      itensSelecionadosTabela.value.push(item);
+    }
   } else {
-    // Seleciona o novo item
-    itemSelecionadoTabela.value = item;
+    itensSelecionadosTabela.value = itensSelecionadosTabela.value.filter(i => i !== item);
   }
 };
 
 // Função para lidar com a inclusão de serviço
 const onIncluirServico = (dadosServico) => {
   console.log('Incluindo serviço:', dadosServico);
-  // Aqui você pode adicionar a lógica para salvar o serviço
-  // Por exemplo, fazer uma chamada para a API
   
   // Fechar o modal
   modalIncluir.value = false;
   
-  // Opcional: atualizar a lista de itens
-  // emit('atualizar-dados');
+  // Limpar seleção da tabela
+  itensSelecionadosTabela.value = [];
+  
+  // Atualizar dados da tabela
+  atualizarDados();
 };
 
 // Função para lidar com a alteração de serviço
 const onAlterarConfirmado = (dadosServico) => {
   console.log('Alterando serviço:', dadosServico);
-  // Aqui você pode adicionar a lógica para alterar o serviço
-  // Por exemplo, fazer uma chamada para a API
   
   // Fechar o modal
   modalAlterar.value = false;
   
-  // Opcional: atualizar a lista de itens
-  // emit('atualizar-dados');
+  // Limpar seleção da tabela
+  itensSelecionadosTabela.value = [];
+  
+  // Atualizar dados da tabela
+  atualizarDados();
 };
 
 // Função para lidar com exclusão bem-sucedida
@@ -549,17 +582,16 @@ const onExclusaoConcluida = (resultado) => {
   console.log('Exclusão concluída:', resultado);
   
   // Exibir mensagem de sucesso
-  // Você pode adicionar um sistema de notificações aqui
   alert(`${resultado.sucessos} item(ns) excluído(s) com sucesso!`);
   
   // Fechar o modal de exclusão
   modalExcluir.value = false;
   
   // Limpar seleção da tabela
-  itemSelecionadoTabela.value = null;
+  itensSelecionadosTabela.value = [];
   
-  // Opcional: emitir evento para atualizar a lista principal
-  // emit('atualizar-dados');
+  // Atualizar dados da tabela
+  atualizarDados();
 };
 
 // Função para lidar com erros na exclusão
@@ -572,6 +604,9 @@ const onErroExclusao = (resultado) => {
     : `${resultado.sucessos} sucessos, ${resultado.erros} erros na exclusão`;
     
   alert(`Erro na exclusão: ${mensagem}`);
+  
+  // Limpar seleção da tabela mesmo em caso de erro
+  itensSelecionadosTabela.value = [];
   
   // Opcional: manter modal aberto para permitir nova tentativa
   // ou fechar dependendo da preferência
@@ -587,8 +622,11 @@ const onAlteracaoDestinoConcluida = () => {
   // Fechar o modal de alteração de destino
   modalAlterarDestino.value = false;
   
-  // Opcional: emitir evento para atualizar a lista principal
-  // emit('atualizar-dados');
+  // Limpar seleção da tabela
+  itensSelecionadosTabela.value = [];
+  
+  // Atualizar dados da tabela
+  atualizarDados();
 };
 
 // Função para lidar com erros na alteração de destino
@@ -598,6 +636,9 @@ const onErroAlteracaoDestino = (resultado) => {
   // Exibir mensagem de erro
   const mensagem = resultado.erro || 'Erro desconhecido ao alterar destino';
   alert(`Erro ao alterar destino: ${mensagem}`);
+  
+  // Limpar seleção da tabela mesmo em caso de erro
+  itensSelecionadosTabela.value = [];
   
   // Opcional: manter modal aberto para permitir nova tentativa
 };
@@ -614,10 +655,10 @@ const onAtendimentoConcluido = (resultado) => {
   modalAtenderItem.value = false;
   
   // Limpar seleção da tabela
-  itemSelecionadoTabela.value = null;
+  itensSelecionadosTabela.value = [];
   
-  // Opcional: emitir evento para atualizar a lista principal
-  // emit('atualizar-dados');
+  // Atualizar dados da tabela
+  atualizarDados();
 };
 
 // Função para lidar com erros no atendimento
@@ -627,6 +668,9 @@ const onErroAtendimento = (resultado) => {
   // Exibir mensagem de erro
   const mensagem = resultado.erro || 'Erro desconhecido ao realizar atendimento';
   alert(`Erro no atendimento: ${mensagem}`);
+  
+  // Limpar seleção da tabela mesmo em caso de erro
+  itensSelecionadosTabela.value = [];
   
   // Opcional: manter modal aberto para permitir nova tentativa
 };

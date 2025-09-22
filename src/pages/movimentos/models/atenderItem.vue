@@ -184,23 +184,7 @@
                 </v-col>
               </v-row>
 
-              <!-- Alerta informativo sobre tipo de movimentação -->
-              <v-alert 
-                v-if="tipoMovimentacao"
-                :type="tipoMovimentacao === 'corte' ? 'warning' : 'info'"
-                variant="tonal"
-                class="mt-3"
-              >
-                <template v-slot:prepend>
-                  <v-icon>
-                    {{ tipoMovimentacao === 'corte' ? 'mdi-content-cut' : 'mdi-swap-horizontal' }}
-                  </v-icon>
-                </template>
-                <strong>Tipo de movimentação:</strong> 
-                {{ tipoMovimentacao === 'corte' ? 'Corte de Bag' : 'Movimentação Normal (Pegar + Soltar)' }}
-                <br>
-                <small>{{ descricaoMovimentacao }}</small>
-              </v-alert>
+            
             </div>
           </v-card-text>
         </v-card>

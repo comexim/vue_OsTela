@@ -234,15 +234,25 @@ export default {
       try {
         loadingMoegas.value = true
         const response = await moegasStore.moegas()
-        
+        let rawList = []
         if (response && Array.isArray(response)) {
-          moegasList.value = response
+          rawList = response
         } else if (response && response.data && Array.isArray(response.data)) {
-          moegasList.value = response.data
+          rawList = response.data
         } else {
-          moegasList.value = []
+          rawList = []
           showMessage('Nenhuma moega encontrada', 'warning')
         }
+        // Filtra moegas únicas por enderCod
+        const uniqueMoegas = Object.values(
+          rawList.reduce((acc, moega) => {
+            if (moega && moega.enderCod && !acc[moega.enderCod]) {
+              acc[moega.enderCod] = moega
+            }
+            return acc
+          }, {})
+        )
+        moegasList.value = uniqueMoegas
       } catch (error) {
         console.error('Erro ao carregar moegas:', error)
         showMessage('Erro ao carregar moegas', 'error')

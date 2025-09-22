@@ -8,6 +8,13 @@
       @ordem-enviada="handleOrdemEnviada"
     />
 
+    <RemocaoOPComponent 
+      v-if="tipo === 'Remoção OP'" 
+      :empilhadeiras="empilhadeiras"
+      :loading-empilhadeiras="loadingEmpilhadeiras"
+      @ordem-enviada="handleOrdemEnviada"
+    />
+
     <!-- Template para Despejo -->
     <DespejoComponent 
       v-if="tipo === 'Despejo'" 
@@ -20,7 +27,7 @@
         <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-help-circle</v-icon>
         <p class="text-h6 text-grey">Selecione um tipo de operação</p>
         <p class="text-body-2 text-grey-darken-1">
-          Escolha entre "Remoção" ou "Despejo" no menu acima
+          Escolha entre "Remoção", "Remoção por OP" ou "Despejo" no menu acima
         </p>
       </v-card-text>
     </div>
@@ -31,6 +38,7 @@
 import { defineProps, defineEmits } from 'vue';
 import RemocaoComponent from '../models/remocao.vue';
 import DespejoComponent from '../models/despejo.vue';
+import RemocaoOPComponent from '../models/remocaoOP.vue';
 
 const props = defineProps({
   tipo: {

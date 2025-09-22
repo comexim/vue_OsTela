@@ -55,7 +55,7 @@
         :search="buscaLocal"
         show-current-page
         fixed-header
-        height="600px"
+        height="300px"
       >
         <template v-slot:top>
           <div class="table-toolbar pa-3">
@@ -110,6 +110,19 @@
                   <span v-if="buscaLocal"> (filtrados de {{ dados.length }} total)</span>
                 </span>
               </v-col>
+              <v-col cols="auto" class="d-flex ga-2">
+                <v-btn color="error" variant="elevated" @click="onExcluirOrdem" size="small">Excluir Ordem</v-btn>
+                <v-btn 
+                  color="secondary" 
+                  variant="elevated" 
+                  @click="onClonarDespejo" 
+                  size="small"
+                  :disabled="!mostrarTabela || dados.length === 0"
+                >
+                  Clonar despejo
+                </v-btn>
+                
+              </v-col>
             </v-row>
           </div>
         </template>
@@ -151,7 +164,7 @@ const props = defineProps({
 });
 
 // Emits
-const emit = defineEmits(['atualizar', 'update:busca', 'abrir-detalhes']);
+const emit = defineEmits(['atualizar', 'update:busca', 'abrir-detalhes', 'excluir-ordem', 'clonar-despejo', 'nova-ordem']);
 
 // Data local
 const buscaLocal = ref(props.busca);
@@ -302,6 +315,20 @@ const formatTimeValue = (value) => {
 // Função para abrir o modal de detalhes
 const abrirDetalhes = (item) => {
   emit('abrir-detalhes', item);
+};
+
+// Funções dos botões do rodapé
+const onExcluirOrdem = () => {
+  // Apenas emite evento para abrir modal de seleção
+  emit('excluir-ordem');
+};
+
+const onClonarDespejo = () => {
+  emit('clonar-despejo');
+};
+
+const onNovaOrdem = () => {
+  emit('nova-ordem');
 };
 </script>
 

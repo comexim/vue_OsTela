@@ -83,6 +83,9 @@
             v-model:busca="busca"
             @atualizar="onFilter"
             @abrir-detalhes="abrirDetalhes"
+            @excluir-ordem="abrirModalExcluir"
+            @clonar-despejo="abrirModalClonar"
+            @nova-ordem="abrirModalNovaOrdem"
           />
 
           <!-- Modal de Detalhes -->
@@ -91,7 +94,38 @@
             :dados-completos="dadosCompletos"
             :item-selecionado="itemSelecionado"
             :loading="loading"
+            @dados-alterados="recarregarDetalhes"
           />
+
+          <!-- Modal de Seleção para Clonagem -->
+          <SelecionarOS
+            v-model:dialog="modalClonarVisible"
+            :os-disponiveis="dadosCompletos"
+            :loading="loading"
+            @confirmar="confirmarClonagem"
+          />
+
+          <!-- Modal de Seleção para Exclusão -->
+          <SelecionarOSParaExclusao
+            v-model:dialog="modalSelecionarExclusaoVisible"
+            :os-disponiveis="dadosCompletos"
+            :dados-completos="dadosCompletos"
+            :loading="loading"
+            @exclusao-concluida="onExclusaoConcluida"
+            @erro-exclusao="onErroExclusao"
+          />
+
+          <!-- Modal de Exclusão (mantido para compatibilidade futura se necessário) -->
+          <!--
+          <ExcluirServico
+            v-model="modalExcluirVisible"
+            :dados-ordem-servico="dadosExclusao.dadosOrdemServico"
+            :item-selecionado="dadosExclusao.itensParaExcluir"
+            :dados-completos="dadosCompletos"
+            @exclusao-concluida="onExclusaoConcluida"
+            @erro-exclusao="onErroExclusao"
+          />
+          -->
         </v-card-text>
       </v-card>
     </v-container>
@@ -103,6 +137,9 @@ import { ref, onMounted } from 'vue';
 import BasePage from '@/components/BasePage.vue';
 import OrdemServTable from './components/ordemServTable.vue';
 import DetalhesOrdemServico from './models/detalhesOrdemServico.vue';
+import SelecionarOS from './models/selecionarOS.vue';
+import SelecionarOSParaExclusao from './models/selecionarOSParaExclusao.vue';
+import ExcluirServico from './models/excluirServico.vue';
 import { getOE } from '../../stores/Consultas/getOE';
 
 const OEStore = getOE();
@@ -117,6 +154,19 @@ const mostrarTabela = ref(false);
 // Modal de detalhes
 const modalDetalhesVisible = ref(false);
 const itemSelecionado = ref({});
+
+// Modal de clonagem
+const modalClonarVisible = ref(false);
+
+// Modal de seleção para exclusão
+const modalSelecionarExclusaoVisible = ref(false);
+
+// Modal de exclusão (antigo - agora não usado diretamente)
+const modalExcluirVisible = ref(false);
+const dadosExclusao = ref({
+  dadosOrdemServico: {},
+  itensParaExcluir: []
+});
 
 // Campos do filtro
 const dataInicial = ref('');
@@ -276,6 +326,132 @@ const carregarDados = async () => {
   if (mostrarTabela.value) {
     await onFilter();
   }
+};
+
+// Função para recarregar detalhes quando dados forem alterados
+const recarregarDetalhes = async () => {
+  console.log('Recarregando detalhes após alteração de dados...');
+  
+  // Se tiver um item selecionado, recarrega os detalhes
+  if (itemSelecionado.value && itemSelecionado.value.opTck) {
+    await abrirDetalhes(itemSelecionado.value);
+  }
+  
+  // Também recarrega a lista geral se estiver visível
+  if (mostrarTabela.value) {
+    await onFilter();
+  }
+};
+
+// Função para abrir modal de exclusão
+const abrirModalExcluir = () => {
+  console.log('Abrindo modal de seleção para exclusão');
+  
+  if (dadosCompletos.value.length === 0) {
+    alert('Nenhuma OS disponível para exclusão. Faça uma consulta primeiro.');
+    return;
+  }
+  
+  // Abre o modal de seleção de OS para exclusão
+  modalSelecionarExclusaoVisible.value = true;
+};
+
+// Função para abrir modal de clonagem
+const abrirModalClonar = () => {
+  if (dadosCompletos.value.length === 0) {
+    alert('Nenhuma OS disponível para clonagem. Faça uma consulta primeiro.');
+    return;
+  }
+  modalClonarVisible.value = true;
+};
+
+// Função para abrir modal de nova ordem
+const abrirModalNovaOrdem = () => {
+  console.log('Abrir modal de nova ordem');
+  // Implementar conforme necessário
+};
+
+// Função para confirmar clonagem
+const confirmarClonagem = (evento) => {
+  console.log('Clonagem confirmada no componente pai:', evento);
+  
+  if (evento.success === true) {
+    // Sucesso confirmado
+    alert(`OS ${evento.os.osid} clonada com sucesso!`);
+    
+    // Recarrega os dados apenas em caso de sucesso
+    onFilter();
+  } else if (evento.success === false) {
+    // Erro confirmado - não fazer nada adicional pois o modal já mostrou o erro
+    console.log('Clonagem falhou:', evento.error);
+    // Não recarrega os dados em caso de erro
+  } else {
+    // Fallback para compatibilidade com versão anterior
+    if (evento.response) {
+      // Verifica se a resposta indica sucesso
+      if (evento.response.code === 200 || evento.response.code === 201 || (!evento.response.code && !evento.response.message)) {
+        alert(`OS ${evento.os.osid} clonada com sucesso!`);
+        onFilter();
+      } else {
+        console.log('Erro detectado na resposta:', evento.response);
+      }
+    }
+  }
+};
+
+// Função para lidar com exclusão bem-sucedida
+const onExclusaoConcluida = (resultado) => {
+  console.log('Exclusão concluída:', resultado);
+  
+  // Determina mensagem baseada no resultado
+  let mensagem = '';
+  if (resultado.erros > 0) {
+    mensagem = `${resultado.sucessos} item(ns) excluído(s) com sucesso, ${resultado.erros} erro(s) encontrado(s)`;
+  } else {
+    mensagem = `${resultado.sucessos} item(ns) excluído(s) com sucesso!`;
+  }
+  
+  if (resultado.osExcluidas && resultado.osExcluidas.length > 0) {
+    mensagem += `\nOS processadas: ${resultado.osExcluidas.join(', ')}`;
+  }
+  
+  alert(mensagem);
+  
+  // Fechar o modal de seleção
+  modalSelecionarExclusaoVisible.value = false;
+  
+  // Fechar o modal de exclusão (se estiver aberto)
+  modalExcluirVisible.value = false;
+  
+  // Limpar dados de exclusão
+  dadosExclusao.value = {
+    dadosOrdemServico: {},
+    itensParaExcluir: []
+  };
+  
+  // Recarregar dados da tabela
+  if (mostrarTabela.value) {
+    onFilter();
+  }
+};
+
+// Função para lidar com erros na exclusão
+const onErroExclusao = (resultado) => {
+  console.error('Erro na exclusão:', resultado);
+  
+  // Exibir mensagem de erro
+  let mensagem = resultado.erro || 'Erro desconhecido ao excluir itens';
+  
+  if (resultado.errosDetalhados && resultado.errosDetalhados.length > 0) {
+    mensagem += '\n\nDetalhes dos erros:';
+    resultado.errosDetalhados.forEach(erro => {
+      mensagem += `\nOS ${erro.osid}, Item ${erro.item}: ${erro.erro}`;
+    });
+  }
+  
+  alert(`Erro na exclusão: ${mensagem}`);
+  
+  // Não fechar o modal para permitir nova tentativa
 };
 
 onMounted(() => {
