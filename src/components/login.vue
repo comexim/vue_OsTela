@@ -1,6 +1,7 @@
 <template>
   <v-container>
-    <div class="d-flex flex-column justify-center align-center pt-15">
+    <div class="login-bg"></div>
+    <div class="d-flex flex-column justify-center align-center pt-15 mt-16">
       <v-card class="pa-10" elevation="10" width="500">
         <div class="text-h5 text-center mb-4">Bem vindo!</div>
 		<div class="text-h6 text-center mb-4">Faça o login:</div>
@@ -54,7 +55,7 @@ async function onLogin() {
     if (result.success) {
       console.log('Login realizado com sucesso!');
       // Redireciona para a tela de mapas
-      router.push('/consultas/mapa');
+      router.push('/components/dashboard');
     } else {
       console.error('Erro ao realizar login:', result.message);
       // Aqui você pode adicionar uma notificação de erro para o usuário
@@ -66,7 +67,17 @@ async function onLogin() {
 </script>
 
 <style scoped>
-.min-vh-100 {
-  min-height: 100vh;
+.login-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url('@/assets/comexim.jpg');
+  background-size: cover;
+  background-position: center;
+  filter: blur(5px);
+}
+.v-container {
+  position: relative;
+  z-index: 1;
 }
 </style>

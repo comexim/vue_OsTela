@@ -1,3 +1,7 @@
+<!--================================================================================================================
+ALTERAÇÕES: Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético da consulta de log das movimentações.
+=================================================================================================================-->
+
 <template>
   <!-- Seção da Tabela -->
   <div v-if="mostrarTabela" class="table-section">
@@ -17,12 +21,12 @@
           </v-btn>
           
           <v-chip 
-            v-if="dados.length > 0"
+            v-if="dadosProcessados.length > 0"
             color="success"
             variant="tonal"
             prepend-icon="mdi-table"
           >
-            {{ dados.length }} registros
+            {{ dadosProcessados.length }} registros
           </v-chip>
           
           <v-chip 
@@ -35,15 +39,13 @@
             {{ filteredItems.length }} filtrados
           </v-chip>
 
-          <v-chip 
-            v-if="dados.length > 10"
-            color="primary"
-            variant="outlined"
-            prepend-icon="mdi-view-list"
-            class="ml-2"
-          >
-            {{ itemsPerPage === -1 ? 'Todos' : itemsPerPage }} por página
-          </v-chip>
+          <v-select
+            v-model="tipoRelatorio"
+            chips
+            label="Relatório"
+            :items="['Analítico','Sintético']"
+            variant="underlined"
+          ></v-select>
         </v-col>
         
         <v-col cols="12" md="6" class="d-flex justify-end">
@@ -357,6 +359,7 @@ const modalColunas = ref(false);
 const salvandoColunas = ref(false);
 const configColunas = ref([]);
 const itemArrastando = ref(null);
+const tipoRelatorio = ref('Analítico');
 
 // Store da API
 const setColumnStore = setColumn();
@@ -464,10 +467,10 @@ const atualizarConfigColunas = (headers, labelMapCompleto = null) => {
 
 // Computed para filtrar dados baseado na busca
 const filteredItems = computed(() => {
-  if (!buscaLocal.value) return props.dados;
+  if (!buscaLocal.value) return dadosProcessados.value;
   
   const termoBusca = buscaLocal.value.toLowerCase();
-  return props.dados.filter(item => {
+  return dadosProcessados.value.filter(item => {
     return Object.values(item).some(valor => 
       String(valor).toLowerCase().includes(termoBusca)
     );
@@ -477,6 +480,34 @@ const filteredItems = computed(() => {
 // Computed para colunas visíveis na ordem configurada
 const colunasVisiveis = computed(() => {
   return configColunas.value.filter(coluna => coluna.visivel);
+});
+
+// Computed para formatar ou não o relatório (Analítico ou Sintético)
+const dadosProcessados = computed(() => {
+  if (tipoRelatorio.value === 'Analítico') {
+    return props.dados;
+  }
+  // Se for Sintético, irá agrupar por lote e somar os pesos
+  const agrupados = {};
+  props.dados.forEach(item => {
+    const lote = item.bagLote;
+    if (!lote) return;
+    if (!agrupados[lote]) {
+      agrupados[lote] = { ...item };
+      agrupados[lote].movEnderPeso = parseFloat(item.movEnderPeso) || 0;
+      agrupados[lote].movEnderPesoSoltar = parseFloat(item.movEnderPesoSoltar) || 0;
+    } else {
+      agrupados[lote].movEnderPeso += parseFloat(item.movEnderPeso) || 0;
+      agrupados[lote].movEnderPesoSoltar += parseFloat(item.movEnderPesoSoltar) || 0;
+    }
+  });
+
+  // Formata os valores somados para string
+  Object.values(agrupados).forEach(item => {
+    item.movEnderPeso = item.movEnderPeso.toString();
+    item.movEnderPesoSoltar = item.movEnderPesoSoltar.toString();
+  });
+  return Object.values(agrupados);
 });
 
 // Função para obter ordem da coluna

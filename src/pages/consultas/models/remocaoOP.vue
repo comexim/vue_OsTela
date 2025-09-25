@@ -93,11 +93,9 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
-import { listaEndereco } from '../../../stores/Consultas/getListaEndereco';
+import { ref, onMounted } from 'vue';
 import { empilhadeira } from '../../../stores/Consultas/getEmpilhadeira';
 import { ordemRemocao } from '../../../stores/Consultas/postOrdemRemocao';
-import { listaBag } from '../../../stores/Consultas/getListaBag';
 
 // Props
 const props = defineProps({
@@ -115,10 +113,8 @@ const props = defineProps({
 const emit = defineEmits(['ordem-enviada']);
 
 // Stores
-const listaEnderecoStore = listaEndereco();
 const empilhadeiraStore = empilhadeira();
 const ordemRemocaoStore = ordemRemocao();
-const listaBagStore = listaBag();
 
 // Estados do formulário
 const remocao = ref({
@@ -154,10 +150,37 @@ const enviarOrdemRemocao = async () => {
     return;
   }
   
+  const { data, hora } = getDataHoraAtual(); // Obtém data e hora atuais
+
   const payload = {
-    op: remocao.value.op,
-    blocoSugerido: remocao.value.blocoSugerido,
-    empicod: remocao.value.empilhadeira
+    wms_os: {
+      OSID: remocao.value.op, 
+      MotCod: "wallace", 
+      OSOpTck: remocao.value.op,
+      OSPrioridade: "0",
+      OSBlocoSuger: remocao.value.blocoSugerido,
+      OSData: data, 
+      OSHora: hora 
+    },
+    wms_itemos: [
+      {
+        OSID: "",
+        ItOSItem: "",
+        OpTck: remocao.value.op,
+        EmpiCod: remocao.value.empilhadeira,
+        MotCod: "",
+        ItOSData: data, 
+        ItOSHora: hora, 
+        ItOsTagBag: "",
+        ItOsOrigem: "",
+        ItOsTagOrigem: "",
+        ItOsDestino: remocao.value.blocoSugerido,
+        ItOsTagDestino: "",
+        ItOSStatus: "",
+        Lote: "",
+        itOsObs: ""
+      }
+    ]
   };
   
   try {
@@ -250,3 +273,4 @@ onMounted(() => {
   overflow-x: hidden;
 }
 </style>
+

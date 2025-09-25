@@ -96,7 +96,7 @@
 
 	<v-app-bar flat class="border-b">
 		<v-app-bar-nav-icon @click="isDrawerOpen = !isDrawerOpen" />
-		<v-btn v-if="isMapaPage" variant="tonal" color="blue" @click="wms = !wms">WMS</v-btn>
+		<v-btn v-if="isMapaPage && dataUser" variant="tonal" color="blue" @click="wms = !wms">WMS</v-btn>
 		<template #append>
 			<v-menu>
 				<template v-slot:activator="{ props }">
@@ -125,6 +125,7 @@ import WmsComponent from '../pages/consultas/components/wms.vue';
 
 const router = useRouter();
 const nomeUsuario = ref('');
+const dataUser = ref(localStorage.getItem('data') === 'true');
 
 onMounted(() => {
   try {

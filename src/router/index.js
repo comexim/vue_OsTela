@@ -47,6 +47,11 @@ const router = createRouter({
                 path: '/movimentos/ordemServico',
                 component: () => import('../pages/movimentos/ordemServico.vue'),
                 meta: { requireAuth: true }
+            },
+            {
+                path: '/components/dashboard',
+                component: () => import('../components/dashboard.vue'),
+                meta: { requireAuth: true }
             }
     ]
 })

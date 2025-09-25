@@ -71,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import BasePage from '@/components/BasePage.vue';
 import logTable from './components/logTable.vue';
 import { movEnder } from '../../stores/Consultas/getMovEnder';

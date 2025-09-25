@@ -48,7 +48,9 @@ export const useUsers = defineStore('users', {
                 
                 if (isSuccess) {
                     this.userData = response;
+                    const data = response.data;
                     localStorage.setItem('user', login);
+                    localStorage.setItem('data', data);
                     console.log(response.message || `Bem vindo de volta!`);
                     return { success: true, data: response };
                 } else {
