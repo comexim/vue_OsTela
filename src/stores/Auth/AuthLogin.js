@@ -13,6 +13,11 @@ export const useUsers = defineStore('users', {
             // Limpa o estado anterior
             this.userData = null;
             
+            // Validação dos parâmetros
+            if (!login || !senha) {
+                return { success: false, message: "Login e senha são obrigatórios!" };
+            }
+            
             try {
                 //Chama a API getToken
                 const secretKey = import.meta.env.VITE_SECRET_KEY;
@@ -20,28 +25,22 @@ export const useUsers = defineStore('users', {
                 await tokenStore.getToken();
                 await tokenStore.getNodeToken();
                 //Para descriptografavar o token do localStorage
-                const tokenCrp = localStorage.getItem('api_token');
+                const tokenCrp = localStorage.getItem('api_token_Node');
                 const token = CryptoJS.AES.decrypt(tokenCrp, secretKey).toString(CryptoJS.enc.Utf8);
 
                 if(!token) {
-                    console.error("Token não encontrado, verifique!");
                     return { success: false, message: "Token não encontrado!"};
                 }
                 
-                const api = mande(`${import.meta.env.VITE_JAVA_API_BASE_URL}/getMotorista`, {
+                const api = mande(`${import.meta.env.VITE_NODE_API_BASE_URL}/getMotorista`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     }
                 });
-
-                // Tentativa 1: Parâmetros na URL manualmente
-                const url = `?login=${encodeURIComponent(login)}&senha=${encodeURIComponent(senha)}`;
                 
-                const response = await api.get(url);
-                
-                console.log("Resposta da API:", response);
-                console.log("Code:", response.code, "Type:", response.type);
+                // Parâmetros como query string (padrão correto do mande)
+                const response = await api.get('', { query: { login, senha } });
                 
                 // Verifica se o login foi bem-sucedido
                 const isSuccess = response && response.code === 600 && response.type === "Success";
@@ -51,23 +50,25 @@ export const useUsers = defineStore('users', {
                     const data = response.data;
                     localStorage.setItem('user', login);
                     localStorage.setItem('data', data);
-                    console.log(response.message || `Bem vindo de volta!`);
+                    
+                    // Armazena os direitos do usuário
+                    if (response.direitos) {
+                        localStorage.setItem('userDireitos', JSON.stringify(response.direitos));
+                    }
+                    
                     return { success: true, data: response };
                 } else {
                     // Se a autenticação falhou, remove o token do localStorage
-                    console.log("Autenticação falhou, removendo token...");
-                    localStorage.removeItem('api_token');
+                    localStorage.removeItem('api_token_Node');
+                    localStorage.removeItem('userDireitos');
                     this.userData = null; // Limpa dados do usuário também
-                    console.error(response?.message || "Erro ao autenticar usuário.");
                     return { success: false, message: response?.message || "Credenciais inválidas." };
                 }
             } catch (error) {
                 // Remove o token em caso de erro também
-                console.log("Erro capturado, removendo token...");
-                localStorage.removeItem('api_token');
+                localStorage.removeItem('api_token_Node');
+                localStorage.removeItem('userDireitos');
                 this.userData = null;
-                console.error("Erro ao conectar com a API.");
-                console.error("Detalhes do erro:", error);
                 return { success: false, message: "Erro ao conectar com a API." };
             }
         },
@@ -75,10 +76,13 @@ export const useUsers = defineStore('users', {
         async logoutUser() {
             try {
                 //Remove o token do localStorage
-                localStorage.removeItem('api_token');
+                localStorage.removeItem('api_token_Node');
+                localStorage.removeItem('userDireitos');
+                localStorage.removeItem('user');
+                localStorage.removeItem('data');
                 this.userData = null;
             } catch (error) {
-                console.log("Erro ao deslogar usuário: ", error);
+                // Erro ao deslogar usuário
             }
         }
     }

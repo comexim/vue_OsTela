@@ -55,9 +55,9 @@
 						>
 							<template v-slot:top>
 								<v-toolbar flat density="compact">
-									<v-toolbar-title class="text-subtitle-2">
-										OP: {{ despejo.op }} - Lote: {{ despejo.lote }}
-									</v-toolbar-title>
+															<v-toolbar-title class="text-subtitle-2">
+																OP: {{ despejo.op }} - Lote: {{ despejo.lote }} | Sacas: {{ totalSacas.toFixed(2) }}
+															</v-toolbar-title>
 								</v-toolbar>
 							</template>
 						</v-data-table>
@@ -156,7 +156,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineEmits } from 'vue';
+import { ref, onMounted, defineEmits, computed } from 'vue';
+// Computed para somar todas as sacas dos endereços encontrados
+const totalSacas = computed(() => {
+	if (!movEnderData.value || movEnderData.value.length === 0) return 0;
+	return movEnderData.value
+		.filter(item => despejo.value.enderecosSelecionados.includes(item.id))
+		.reduce((acc, item) => acc + ((item.bagKgAtu || 0) / 59), 0);
+});
+
 import { enderColor } from '../../../stores/Consultas/getEnderColor'; 
 import { empilhadeira } from '../../../stores/Consultas/getEmpilhadeira';
 import { moegas } from '../../../stores/Consultas/getMoega';
@@ -205,23 +213,6 @@ const headersDespejo = ref([
 	{ title: 'Endereço', key: 'enderCod', sortable: true },
 	{ title: 'Lote', key: 'bagLote', sortable: false }
 ]);
-
-// Função para converter enderecoCod em parâmetros
-function parseEnderecoCod(cod) {
-	const match = cod.match(/^([0-9]+)([A-Z])([0-9]+)$/);
-	if (match) {
-		return {
-			bloco: match[1],
-			quadra: match[2],
-			posicao: match[3]
-		};
-	}
-	return {
-		bloco: cod.substring(0, 3),
-		quadra: cod.substring(3, 4),
-		posicao: cod.substring(4, 6)
-	};
-}
 
 // Função para enriquecer dados do lote com informações da API getListaBag
 async function enriquecerDadosLote(lote) {
@@ -356,13 +347,26 @@ const carregarMoegas = async () => {
 };
 
 const gerarOrdemDespejo = async () => {
-	if (!despejo.value.empilhadeira || despejo.value.enderecosSelecionados.length === 0) {
-		console.warn('Empilhadeira e pelo menos um endereço são obrigatórios');
+	// Validação da empilhadeira (sempre obrigatória)
+	if (!despejo.value.empilhadeira) {
+		console.warn('Empilhadeira é obrigatória');
 		mensagemResultado.value = {
 			mostrar: true,
 			tipo: 'error',
 			titulo: 'Erro de Validação!',
-			texto: 'Empilhadeira e pelo menos um endereço são obrigatórios'
+			texto: 'Empilhadeira é obrigatória'
+		};
+		return;
+	}
+
+	// Para despejo por Lote, endereços selecionados são obrigatórios
+	if (despejo.value.lote && despejo.value.enderecosSelecionados.length === 0) {
+		console.warn('Para despejo por Lote, pelo menos um endereço deve ser selecionado');
+		mensagemResultado.value = {
+			mostrar: true,
+			tipo: 'error',
+			titulo: 'Erro de Validação!',
+			texto: 'Para despejo por Lote, pelo menos um endereço deve ser selecionado'
 		};
 		return;
 	}
@@ -398,16 +402,32 @@ const gerarOrdemDespejo = async () => {
 
 		if (despejo.value.op) {
 			// Formato para OP
-			const enderecosParaEnvio = movEnderData.value
-				.filter(item => despejo.value.enderecosSelecionados.includes(item.id))
-				.map(item => ({
-					EnderCod: item.enderCod
-				}));
+			// Pega a moega selecionada (primeira, se múltipla)
+			const moegaSelecionada = despejo.value.moegas && despejo.value.moegas.length > 0
+				? obterDescricaoMoega(despejo.value.moegas[0])
+				: null;
 
+			// Se não houver moega selecionada, retorna erro
+			if (!moegaSelecionada) {
+				mensagemResultado.value = {
+					mostrar: true,
+					tipo: 'error',
+					titulo: 'Erro de Validação!',
+					texto: 'Selecione uma Moega para enviar a ordem de despejo por OP.'
+				};
+				loadingGerarOrdem.value = false;
+				return;
+			}
+
+			// Monta o payload conforme solicitado
 			const payloadOP = {
 				op: despejo.value.op,
 				empicod: despejo.value.empilhadeira,
-				listaEnder: enderecosParaEnvio
+				listaEnder: [
+					{
+						EnderCod: moegaSelecionada
+					}
+				]
 			};
 
 			console.log('Enviando dados da OP:', JSON.stringify(payloadOP, null, 2));
@@ -429,7 +449,7 @@ const gerarOrdemDespejo = async () => {
 					ItOsObs: "",
 					ItOsPeso: item.bagKgAtu || "",
 					ItOsTagBag: item.bagTag || "",
-					Lote: despejo.value.lote,
+					Lote: item.bagLote,
 					MotCod: "",
 					OpTck: "",
 					OSID: "",

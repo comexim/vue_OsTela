@@ -26,7 +26,7 @@
               
               <!-- Informações Automáticas: Item, Data e Hora -->
               <v-row class="mb-2">
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Item"
                     v-model="formData.item"
@@ -36,7 +36,7 @@
                     bg-color="grey-lighten-4"
                   />
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Data"
                     v-model="formData.data"
@@ -46,7 +46,7 @@
                     bg-color="grey-lighten-4"
                   />
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Hora"
                     v-model="formData.hora"
@@ -56,14 +56,10 @@
                     bg-color="grey-lighten-4"
                   />
                 </v-col>
-              </v-row>
-
-              <!-- Dados do Item Selecionado: Tag, Lote e Origem -->
-              <v-row class="mb-2">
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Tag do Bag"
-                    v-model="formData.tagBag"
+                    :model-value="formData.tagBag ? formData.tagBag.slice(-6) : ''"
                     readonly
                     variant="outlined"
                     density="compact"
@@ -71,7 +67,47 @@
                     :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
                   />
                 </v-col>
-                <v-col cols="12" md="4">
+              </v-row>
+
+              <!-- Segunda linha: Peso editável e Sacas -->
+              <v-row class="mb-2">
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    label="Peso Original (kg)"
+                    :model-value="formatarPeso(pesoOriginal)"
+                    readonly
+                    variant="outlined"
+                    density="compact"
+                    bg-color="blue-lighten-5"
+                    :placeholder="!props.itemSelecionado ? 'Peso original do item' : ''"
+                  />
+                </v-col>
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    label="Peso (kg)"
+                    v-model="formData.peso"
+                    type="number"
+                    variant="outlined"
+                    density="compact"
+                    @input="validarECalcularSacasPorPeso"
+                    :placeholder="!itemSelecionado ? 'Peso do item selecionado' : ''"
+                    :error="erroValidacaoPeso"
+                    :error-messages="mensagemErroPeso"
+                  />
+                </v-col>
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    label="Sacas"
+                    v-model="formData.sacas"
+                    type="number"
+                    variant="outlined"
+                    density="compact"
+                    @input="validarECalcularPesoPorSacas"
+                    :placeholder="!itemSelecionado ? 'Sacas do item selecionado' : ''"
+                    :error="erroValidacaoPeso"
+                  />
+                </v-col>
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Lote"
                     v-model="formData.lote"
@@ -82,6 +118,10 @@
                     :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
                   />
                 </v-col>
+              </v-row>
+
+              <!-- Dados do Item Selecionado: Tag, Lote e Origem -->
+              <v-row class="mb-2">
                 <v-col cols="12" md="4">
                   <v-text-field
                     label="Origem"
@@ -93,37 +133,7 @@
                     :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
                   />
                 </v-col>
-              </v-row>
-
-              <!-- Informações de Peso e Quantidade -->
-              <v-row class="mb-2">
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    label="Peso (kg)"
-                    v-model="formData.peso"
-                    type="number"
-                    variant="outlined"
-                    density="compact"
-                    @input="calcularSacasPorPeso"
-                    :placeholder="!itemSelecionado ? 'Peso do item selecionado' : ''"
-                  />
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    label="Sacas"
-                    v-model="formData.sacas"
-                    type="number"
-                    variant="outlined"
-                    density="compact"
-                    @input="calcularPesoPorSacas"
-                    :placeholder="!itemSelecionado ? 'Sacas do item selecionado' : ''"
-                  />
-                </v-col>
-              </v-row>
-
-              <!-- Seleção de Destino: Bloco e Posição -->
-              <v-row class="mb-2">
-                <v-col cols="12" md="6">
+                <v-col cols="12" md="4">
                   <v-select
                     label="Bloco Destino"
                     v-model="formData.blocoDestino"
@@ -136,7 +146,7 @@
                     @update:model-value="onBlocoDestinoChange"
                   />
                 </v-col>
-                <v-col cols="12" md="6">
+                <v-col cols="12" md="4">
                   <v-select
                     label="Posição Destino"
                     v-model="formData.posicaoDestino"
@@ -151,9 +161,15 @@
                 </v-col>
               </v-row>
 
+              <!-- Seleção de Destino: Bloco e Posição -->
+              <v-row class="mb-2">
+
+
+              </v-row>
+
               <!-- Seleção de Empilhadeira -->
               <v-row class="mb-2">
-                <v-col cols="12">
+                <v-col cols="12" md="6">
                   <v-select
                     label="Empilhadeira"
                     v-model="formData.empilhadeira"
@@ -162,14 +178,9 @@
                     item-value="value"
                     variant="outlined"
                     density="compact"
-                    :rules="[rules.required]"
                   />
                 </v-col>
-              </v-row>
-
-              <!-- Campo Opcional de Observação -->
-              <v-row class="mb-4">
-                <v-col cols="12">
+                <v-col cols="12" md="6">
                   <v-textarea
                     label="Observação"
                     v-model="formData.observacao"
@@ -177,7 +188,19 @@
                     density="compact"
                     rows="3"
                     no-resize
-                  />
+                  >
+                    <template v-slot:append-inner>
+                      <v-btn
+                        icon
+                        size="small"
+                        variant="text"
+                        @click="limparObservacao"
+                        v-if="formData.observacao"
+                      >
+                        <v-icon size="16">mdi-close</v-icon>
+                      </v-btn>
+                    </template>
+                  </v-textarea>
                 </v-col>
               </v-row>
 
@@ -185,65 +208,16 @@
               <v-row>
                 <v-col cols="12" class="text-center">
                   <v-btn
-                    color="primary"
+                    color="success"
                     variant="elevated"
                     @click="confirmarAlteracao"
-                    prepend-icon="mdi-pencil"
+                    prepend-icon="mdi-content-save"
                     size="large"
                     :loading="loading"
                     :disabled="!formValido"
-                    class="mr-3"
                   >
-                    Alterar Item
-                    <span v-if="itemSelecionado" class="ml-2">
-                      (1 item)
-                    </span>
+                    Salvar Alteração
                   </v-btn>
-
-                  <v-btn
-                    color="success"
-                    variant="elevated"
-                    @click="finalizarAlteracao"
-                    prepend-icon="mdi-check-all"
-                    size="large"
-                    :loading="loading"
-                    :disabled="itensAcumulados.length === 0"
-                  >
-                    Finalizar Alteração
-                    <span v-if="itensAcumulados.length > 0" class="ml-2">
-                      ({{ itensAcumulados.length }} {{ itensAcumulados.length === 1 ? 'item' : 'itens' }})
-                    </span>
-                  </v-btn>
-                </v-col>
-              </v-row>
-
-              <!-- Exibição dos Itens Alterados -->
-              <v-row v-if="itensAcumulados.length > 0" class="mt-4">
-                <v-col cols="12">
-                  <v-card elevation="1" class="pa-3">
-                    <v-card-title class="text-h6 pa-0 mb-3">
-                      Itens Alterados ({{ itensAcumulados.length }})
-                    </v-card-title>
-                    
-                    <div class="itens-adicionados-container">
-                      <v-chip
-                        v-for="(item, index) in itensAcumulados"
-                        :key="index"
-                        color="success"
-                        variant="outlined"
-                        size="small"
-                        class="ma-1"
-                        closable
-                        @click:close="removerItemAcumulado(index)"
-                      >
-                        {{ item.Lote }}
-                        <template v-slot:append>
-                          <v-icon size="small">mdi-weight-kilogram</v-icon>
-                          {{ formatarPeso(item.ItOsPeso) }}
-                        </template>
-                      </v-chip>
-                    </div>
-                  </v-card>
                 </v-col>
               </v-row>
             </v-card>
@@ -353,9 +327,6 @@ const snackbarMessage = ref('');
 const snackbarColor = ref('success');
 const snackbarTimeout = ref(-1); // -1 significa sem timeout automático
 
-// Armazena a resposta da API para enviar quando usuário fechar
-const ultimaResposta = ref(null);
-
 // Campos de Pesquisa
 const pesquisaLote = ref('');
 const pesquisaTagBag = ref('');
@@ -392,6 +363,10 @@ const itemSelecionado = ref(null);
 
 // Controle do peso original para detectar alterações
 const pesoOriginal = ref(null);
+
+// Variáveis para validação de peso
+const erroValidacaoPeso = ref(false);
+const mensagemErroPeso = ref('');
 
 // ===== CONFIGURAÇÕES DA TABELA =====
 
@@ -446,8 +421,7 @@ const rules = {
 // Verifica se o formulário está válido para submissão
 const formValido = computed(() => {
   return formData.value.blocoDestino && 
-         formData.value.posicaoDestino && 
-         formData.value.empilhadeira &&
+         formData.value.posicaoDestino &&
          (itemSelecionado.value !== null || props.itemSelecionado !== null);
 });
 
@@ -485,6 +459,8 @@ watch(itemSelecionado, (newVal) => {
  * Inicializa o formulário com valores padrão e carrega dados necessários
  */
 const inicializarFormulario = () => {
+  console.log('🚀 Inicializando formulário com item selecionado:', props.itemSelecionado);
+  
   // Se há um item selecionado, preenche os dados
   if (props.itemSelecionado) {
     preencherFormularioComItemSelecionado(props.itemSelecionado);
@@ -503,13 +479,13 @@ const inicializarFormulario = () => {
     formData.value.peso = '';
     formData.value.sacas = '';
     formData.value.origem = '';
+    formData.value.observacao = '';
   }
   
   // Sempre limpa os campos de destino e empilhadeira para permitir alteração
   formData.value.blocoDestino = '';
   formData.value.posicaoDestino = '';
   formData.value.empilhadeira = '';
-  formData.value.observacao = '';
   
   // Limpa pesquisa e seleções
   pesquisaLote.value = '';
@@ -517,7 +493,6 @@ const inicializarFormulario = () => {
   resultadosPesquisa.value = [];
   itemSelecionado.value = null;
   itensAcumulados.value = [];
-  ultimaResposta.value = null; // Limpa resposta anterior
   
   // Carrega dados dos selects
   carregarBlocosDestino();
@@ -632,6 +607,25 @@ const formatarHoraParaFormulario = (value) => {
 };
 
 /**
+ * Converte data do formato YYYYMMDD para DD/MM/AAAA para envio na API
+ */
+const converterDataParaAPI = (value) => {
+  if (!value) return '';
+  // Se já estiver no formato DD/MM/AAAA, retorna como está
+  if (typeof value === 'string' && value.includes('/')) {
+    return value;
+  }
+  // Se estiver no formato YYYYMMDD, converte para DD/MM/AAAA
+  if (typeof value === 'string' && value.length === 8 && /^\d{8}$/.test(value)) {
+    const year = value.substring(0, 4);
+    const month = value.substring(4, 6);
+    const day = value.substring(6, 8);
+    return `${day}/${month}/${year}`;
+  }
+  return value;
+};
+
+/**
  * Calcula sacas baseado no peso (peso/59)
  */
 const calcularSacasPorPeso = (event) => {
@@ -675,6 +669,65 @@ const calcularPesoPorSacas = (event) => {
   
   // Verifica se o peso foi alterado e atualiza a observação
   verificarAlteracaoPeso(peso);
+};
+
+/**
+ * Valida o peso informado e calcula sacas automaticamente
+ */
+const validarECalcularSacasPorPeso = (event) => {
+  let peso = parseFloat(event.target.value) || 0;
+  
+  // Se o peso for maior que o original, ajusta automaticamente para o peso original
+  if (pesoOriginal.value && peso > pesoOriginal.value) {
+    peso = pesoOriginal.value;
+    formData.value.peso = peso.toString();
+    erroValidacaoPeso.value = false;
+    mensagemErroPeso.value = '';
+  } else {
+    erroValidacaoPeso.value = false;
+    mensagemErroPeso.value = '';
+  }
+  
+  // Calcula sacas baseado no peso
+  const sacas = peso / 59;
+  formData.value.sacas = sacas.toFixed(2);
+  
+  // Verifica se o peso foi alterado e atualiza a observação
+  verificarAlteracaoPeso(peso);
+};
+
+/**
+ * Valida o peso calculado pelas sacas
+ */
+const validarECalcularPesoPorSacas = (event) => {
+  const sacas = parseFloat(event.target.value) || 0;
+  let peso = sacas * 59;
+  
+  // Se o peso calculado for maior que o original, ajusta automaticamente para o peso original
+  if (pesoOriginal.value && peso > pesoOriginal.value) {
+    peso = pesoOriginal.value;
+    formData.value.peso = peso.toFixed(2);
+    // Recalcula as sacas baseado no peso original
+    const sacasAjustadas = peso / 59;
+    formData.value.sacas = sacasAjustadas.toFixed(2);
+    erroValidacaoPeso.value = false;
+    mensagemErroPeso.value = '';
+  } else {
+    erroValidacaoPeso.value = false;
+    mensagemErroPeso.value = '';
+    // Atualiza o peso calculado normalmente
+    formData.value.peso = peso.toFixed(2);
+  }
+  
+  // Verifica se o peso foi alterado e atualiza a observação
+  verificarAlteracaoPeso(peso);
+};
+
+/**
+ * Limpa o campo de observação
+ */
+const limparObservacao = () => {
+  formData.value.observacao = '';
 };
 
 // ===== FUNÇÕES DE CARREGAMENTO DE DADOS =====
@@ -947,6 +1000,14 @@ const preencherFormularioComItem = (item) => {
 const preencherFormularioComItemSelecionado = (item) => {
   if (!item) return;
   
+  console.log('🔍 Preenchendo formulário com item selecionado:', item);
+  console.log('🔍 Observação do item (itOsObs):', item.itOsObs);
+  
+  // Calcula o peso original: se houver observação E não começar com "* CORT FOR *", soma itOsPeso + itOsPesoSoltar
+  const pesoOriginalCalculado = (item.itOsObs && !item.itOsObs.startsWith('* CORT FOR *'))
+    ? (parseFloat(item.itOsPeso) || 0) + (parseFloat(item.itOsPesoSoltar) || 0)
+    : (parseFloat(item.itOsPeso) || 0);
+  
   // Preenche com os dados do item selecionado (campos readonly)
   formData.value.item = item.itOSItem || '';
   formData.value.data = formatarDataParaFormulario(item.itOSData) || '';
@@ -960,8 +1021,10 @@ const preencherFormularioComItemSelecionado = (item) => {
   // Preenche os campos que podem ser alterados com os valores atuais
   formData.value.observacao = item.itOsObs || '';
   
-  // Armazena o peso original para detectar alterações
-  pesoOriginal.value = item.itOsPeso || null;
+  console.log('✅ Observação preenchida no formData:', formData.value.observacao);
+  
+  // Armazena o peso original calculado para detectar alterações
+  pesoOriginal.value = pesoOriginalCalculado;
   
   // Tenta preencher bloco e posição de destino baseado no destino atual
   if (item.itOsDestino) {
@@ -1065,7 +1128,7 @@ const mostrarNotificacao = (tipo, titulo, mensagem, dados = null, timeout = -1) 
 // ===== FUNÇÕES DE ALTERAÇÃO DE ITENS =====
 
 /**
- * Confirma a alteração de um item na lista acumulada
+ * Confirma a alteração e salva no JSON pai
  */
 const confirmarAlteracao = () => {
   if (!formValido.value) {
@@ -1075,53 +1138,84 @@ const confirmarAlteracao = () => {
   loading.value = true;
   
   // Usa dados do item selecionado na tabela ou do item pesquisado
-  const itemParaAlterar = props.itemSelecionado || itemSelecionado.value;
+  const itemOriginal = props.itemSelecionado || itemSelecionado.value;
   
-  const itemAtual = formData.value.item;
-  const agora = new Date();
-  const dataFormatada = formatarDataAtual(agora);
-  const horaFormatada = formatarHoraAtual(agora);
-
-  const novoItem = {
-    OSID: "",  // Será preenchido na finalização
-    ItOSItem: formData.value.item || "",
-    OpTck: "", // Será preenchido na finalização
-    EmpiCod: formData.value.empilhadeira,
-    MotCod: "", // Será preenchido na finalização
-    ItOSData: "", // Será preenchido na finalização
-    ItOSHora: "", // Será preenchido na finalização
-    ItOsTagBag: formData.value.tagBag || "",
-    ItOsOrigem: formData.value.origem || "",
-    ItOsTagOrigem: "",
-    ItOsDestino: formData.value.posicaoDestino,
-    ItOsTagDestino: formData.value.blocoDestino === 'MOEGA' ? formData.value.posicaoDestino : "",
-    ItOSStatus: "AB",
-    Lote: formData.value.lote || "",
-    ItOsObs: formData.value.observacao || "",
-    ItOsPeso: parseFloat(formData.value.peso) || 0
-  };
-
-  // Adiciona à lista acumulada
-  itensAcumulados.value.push(novoItem);
-  
-  console.log('✏️ Item alterado na lista:', novoItem);
-  console.log('📝 Lista acumulada atual:', itensAcumulados.value);
-  console.log('🔢 Total de itens acumulados:', itensAcumulados.value.length);
-  
-  // Mostra notificação de item alterado (com timeout de 3 segundos)
-  mostrarNotificacao(
-    'success',
-    'Item alterado com sucesso!',
-    `Lote: ${formData.value.lote} - Total de itens: ${itensAcumulados.value.length}`,
-    null,
-    3000
-  );
-  
-  // Simula processamento
-  setTimeout(() => {
-    limparCamposParaNovoItem();
+  if (!itemOriginal) {
+    alert('Nenhum item selecionado para alteração');
     loading.value = false;
-  }, 500);
+    return;
+  }
+
+  try {
+    // O peso digitado vai para ItOsPeso, o restante vai para ItOsPesoSoltar
+    const pesoDigitado = parseFloat(formData.value.peso) || 0;
+    
+    // Se o item já teve uma parte feita antes (tem itOsPesoSoltar > 0), soma os dois para ter o peso total original
+    const pesoAtual = parseFloat(itemOriginal.itOsPeso) || 0;
+    const pesoSoltarAnterior = parseFloat(itemOriginal.itOsPesoSoltar) || 0;
+    const pesoOriginalItem = pesoSoltarAnterior;
+    
+    const pesoRestante = pesoOriginalItem - pesoDigitado;
+    // Obter dados originais da OS
+    const osid = props.dadosOrdemServico?.osid || "";
+    const motCod = props.dadosOrdemServico?.motCod || "";
+
+    // Obter todos os itens da OS atual (originais)
+    const todosItensOriginais = props.dadosCompletos.filter(item => 
+      item.osid === osid
+    );
+
+    // Criar item alterado em formato minúsculo
+    const itemAlterado = {
+      osid: osid,
+      itOSItem: formData.value.item || "",
+      opTck: osid,
+      empiCod: formData.value.empilhadeira,
+      motCod: motCod,
+      itOSData: itemOriginal.itOSData || "",
+      itOSHora: itemOriginal.itOSHora || "",
+      itOsTagBag: itemOriginal.itOsTagBag || "",
+      itOsOrigem: itemOriginal.itOsOrigem || "",
+      itOsTagOrigem: itemOriginal.itOsTagOrigem || "",
+      itOsDestino: formData.value.posicaoDestino,
+      itOsTagDestino: formData.value.blocoDestino === 'MOEGA' ? formData.value.posicaoDestino : "",
+      itOSStatus: "AB",
+      lote: itemOriginal.lote || "",
+      itOsObs: formData.value.observacao || "",
+      itOsPeso: pesoDigitado,
+      itOsPesoSoltar: pesoRestante
+    };
+
+    // Montar array final: item alterado + itens originais não alterados
+    const todosItens = todosItensOriginais.map(itemOriginalOS => {
+      if (itemOriginalOS.itOSItem === itemAlterado.itOSItem) {
+        // Substitui pelo item alterado
+        return itemAlterado;
+      } else {
+        // Mantém o item original
+        return itemOriginalOS;
+      }
+    });
+
+    console.log('✅ Salvando alteração - Dados preparados:');
+    console.log('� Item alterado:', itemAlterado);
+    console.log('� Total de itens (com originais):', todosItens.length);
+
+    // Emite evento com os dados formatados
+    emit('confirmar', {
+      itensAlterados: [itemAlterado], // Array com o item alterado
+      todosItens: todosItens // Todos os itens (alterado + originais)
+    });
+
+    // Fecha o modal
+    dialogVisible.value = false;
+    
+  } catch (error) {
+    console.error('❌ Erro ao salvar alteração:', error);
+    alert(`Erro ao processar alteração:\n${error.message}`);
+  } finally {
+    loading.value = false;
+  }
 };
 
 /**
@@ -1150,23 +1244,20 @@ const limparCamposParaNovoItem = () => {
 };
 
 /**
- * Finaliza a alteração enviando todos os itens da OS (alterados + originais)
+ * Finaliza a alteração e retorna dados para o componente pai
+ * NOTA: Função não utilizada - alteração é salva diretamente via confirmarAlteracao
  */
-const finalizarAlteracao = async () => {
+/*
+const finalizarAlteracao = () => {
   if (itensAcumulados.value.length === 0) {
+    alert('Nenhuma alteração foi feita.');
     return;
   }
 
   loading.value = true;
 
   try {
-    // Gera dados no formato esperado pela API UPDWMSOS
-    const agora = new Date();
-    const dataFormatada = formatarDataAtual(agora);
-    const horaFormatada = formatarHoraAtual(agora);
-
-    // Obter o motCod do primeiro item ou usar um valor padrão
-    const motCod = props.dadosOrdemServico?.motCod || "sistema";
+    // Obter dados originais da OS
     const osid = props.dadosOrdemServico?.osid || "";
 
     // Obter todos os itens da OS atual (originais)
@@ -1185,115 +1276,84 @@ const finalizarAlteracao = async () => {
       const itemAlterado = itensAlteradosMap.get(itemOriginal.itOSItem);
       
       if (itemAlterado) {
-        // Se foi alterado, usa os dados alterados
+        // Se foi alterado NESTA sessão, retorna item alterado em formato minúsculo
         return {
-          ...itemAlterado,
-          OSID: osid,
-          OpTck: osid,
-          MotCod: motCod,
-          ItOSData: dataFormatada,
-          ItOSHora: horaFormatada
+          osid: osid,
+          itOSItem: itemAlterado.ItOSItem,
+          opTck: itemAlterado.OpTck,
+          empiCod: itemAlterado.EmpiCod,
+          motCod: itemAlterado.MotCod,
+          itOSData: itemAlterado.ItOSData,
+          itOSHora: itemAlterado.ItOSHora,
+          itOsTagBag: itemAlterado.ItOsTagBag,
+          itOsOrigem: itemAlterado.ItOsOrigem,
+          itOsTagOrigem: itemAlterado.ItOsTagOrigem,
+          itOsDestino: itemAlterado.ItOsDestino,
+          itOsTagDestino: itemAlterado.ItOsTagDestino,
+          itOSStatus: itemAlterado.ItOSStatus,
+          lote: itemAlterado.Lote,
+          itOsObs: itemAlterado.ItOsObs,
+          itOsPeso: parseFloat(itemAlterado.ItOsPeso) || 0,
+          itOsPesoSoltar: parseFloat(itemAlterado.ItOsPesoSoltar) || 0
         };
       } else {
-        // Se não foi alterado, mantém os dados originais no formato correto
-        return {
-          OSID: osid,
-          ItOSItem: itemOriginal.itOSItem,
-          OpTck: osid,
-          EmpiCod: itemOriginal.empiCod || "",
-          MotCod: motCod,
-          ItOSData: dataFormatada,
-          ItOSHora: horaFormatada,
-          ItOsTagBag: itemOriginal.itOsTagBag || "",
-          ItOsOrigem: itemOriginal.itOsOrigem || "",
-          ItOsTagOrigem: itemOriginal.itOsTagOrigem || "",
-          ItOsDestino: itemOriginal.itOsDestino || "",
-          ItOsTagDestino: itemOriginal.itOsTagDestino || "",
-          ItOSStatus: itemOriginal.itOSStatus || "AB",
-          Lote: itemOriginal.lote || "",
-          ItOsObs: itemOriginal.itOsObs || "",
-          ItOsPeso: parseFloat(itemOriginal.itOsPeso) || 0
-        };
+        // Se NÃO foi alterado, mantém os dados originais
+        return itemOriginal;
       }
     });
 
-    const dadosAPI = {
-      wms_os: {
-        OSID: osid,
-        MotCod: motCod,
-        OSOpTck: osid,
-        OSPrioridade: "0",
-        OSBlocoSuger: "",
-        OSData: dataFormatada,
-        OSHora: horaFormatada
-      },
-      wms_itemos: todosItens
-    };
-    
-    // Console.log para verificar os dados sendo enviados
-    console.log('📋 Dados sendo enviados para UPDWMSOS:');
-    console.log('🔹 wms_os:', dadosAPI.wms_os);
-    console.log('🔹 wms_itemos:', dadosAPI.wms_itemos);
-    console.log('🔹 Total de itens:', dadosAPI.wms_itemos.length);
-    console.log('🔹 Itens alterados:', itensAcumulados.value.length);
-    console.log('🔹 Itens originais mantidos:', dadosAPI.wms_itemos.length - itensAcumulados.value.length);
-    console.log('🔹 Payload completo:', dadosAPI);
-    
-    // Envia os dados para a API UPDWMSOS
-    const response = await wmSOSStore.UPDWMSOS(dadosAPI);
-    
-    console.log('✅ Resposta da API UPDWMSOS:', response);
-    
-    // Verifica se a resposta foi bem sucedida
-    if (response && response.code === 600 && response.type === 'OK') {
-      // Armazena a resposta para enviar quando usuário fechar
-      ultimaResposta.value = response;
-      
-      // Exibe mensagem de sucesso para o usuário (sem timeout - usuário deve fechar)
-      mostrarNotificacao(
-        'success', 
-        response.message, 
-        `Itens processados: ${itensAcumulados.value.length}`,
-        response.data,
-        -1
-      );
-      
-      // NÃO emite evento nem fecha modal automaticamente - deixa o usuário decidir
-    } else {
-      // Se a resposta não foi bem sucedida (sem timeout - usuário deve fechar)
-      ultimaResposta.value = response;
-      
-      mostrarNotificacao(
-        'error',
-        'Erro ao processar dados',
-        response?.message || 'Erro desconhecido',
-        null,
-        -1
-      );
-    }
+    // Array apenas com os itens que foram alterados (para log)
+    const itensAlterados = itensAcumulados.value.map(item => ({
+      osid: osid,
+      itOSItem: item.ItOSItem,
+      opTck: item.OpTck,
+      empiCod: item.EmpiCod,
+      motCod: item.MotCod,
+      itOSData: item.ItOSData,
+      itOSHora: item.ItOSHora,
+      itOsTagBag: item.ItOsTagBag,
+      itOsOrigem: item.ItOsOrigem,
+      itOsTagOrigem: item.ItOsTagOrigem,
+      itOsDestino: item.ItOsDestino,
+      itOsTagDestino: item.ItOsTagDestino,
+      itOSStatus: item.ItOSStatus,
+      lote: item.Lote,
+      itOsObs: item.ItOsObs,
+      itOsPeso: parseFloat(item.ItOsPeso) || 0,
+      itOsPesoSoltar: parseFloat(item.ItOsPesoSoltar) || 0
+    }));
+
+    console.log('✅ Finalizando alteração - Dados preparados:');
+    console.log('� Itens alterados:', itensAlterados.length);
+    console.log('� Total de itens (com originais):', todosItens.length);
+
+    // Emite evento com os dados formatados
+    emit('confirmar', {
+      itensAlterados: itensAlterados, // Apenas os alterados
+      todosItens: todosItens // Todos os itens (alterados + originais)
+    });
+
+    // Fecha o modal
+    dialogVisible.value = false;
     
   } catch (error) {
-    console.error('❌ Erro ao enviar dados para UPDWMSOS:', error);
-    
-    // Exibe mensagem de erro para o usuário (sem timeout - usuário deve fechar)
-    mostrarNotificacao(
-      'error',
-      'Erro ao enviar dados',
-      error?.message || 'Erro de comunicação com o servidor',
-      null,
-      -1
-    );
+    console.error('❌ Erro ao finalizar alteração:', error);
+    alert(`Erro ao processar alteração:\n${error.message}`);
   } finally {
     loading.value = false;
   }
 };
+*/
 
 /**
  * Remove um item da lista acumulada
+ * NOTA: Função não utilizada - não há mais lista acumulada
  */
+/*
 const removerItemAcumulado = (index) => {
   itensAcumulados.value.splice(index, 1);
 };
+*/
 
 /**
  * Fecha o modal
@@ -1301,7 +1361,6 @@ const removerItemAcumulado = (index) => {
 const fecharModal = () => {
   dialogVisible.value = false;
   showSnackbar.value = false; // Também fecha qualquer notificação ativa
-  ultimaResposta.value = null; // Limpa resposta armazenada
 };
 
 /**
@@ -1309,12 +1368,6 @@ const fecharModal = () => {
  */
 const fecharModalAposSucesso = () => {
   showSnackbar.value = false;
-  
-  // Emite o evento para o componente pai com a resposta armazenada
-  if (ultimaResposta.value) {
-    emit('confirmar', ultimaResposta.value);
-  }
-  
   fecharModal();
 };
 

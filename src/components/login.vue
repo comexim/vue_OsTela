@@ -53,15 +53,10 @@ async function onLogin() {
     const result = await usersStore.loginUser(login.value, senha.value);
     
     if (result.success) {
-      console.log('Login realizado com sucesso!');
-      // Redireciona para a tela de mapas
       router.push('/components/dashboard');
-    } else {
-      console.error('Erro ao realizar login:', result.message);
-      // Aqui você pode adicionar uma notificação de erro para o usuário
     }
   } catch (error) {
-    console.error('Erro ao realizar login:', error);
+    // Erro ao realizar login
   }
 }
 </script>

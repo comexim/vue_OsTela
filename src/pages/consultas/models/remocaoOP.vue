@@ -95,7 +95,8 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { empilhadeira } from '../../../stores/Consultas/getEmpilhadeira';
-import { ordemRemocao } from '../../../stores/Consultas/postOrdemRemocao';
+import { WMSOS } from '../../../stores/Consultas/setWMSOS';
+import { getOE } from '../../../stores/Consultas/getOE';
 
 // Props
 const props = defineProps({
@@ -114,7 +115,8 @@ const emit = defineEmits(['ordem-enviada']);
 
 // Stores
 const empilhadeiraStore = empilhadeira();
-const ordemRemocaoStore = ordemRemocao();
+const WMSOSStore = WMSOS();
+const getOEStore = getOE();
 
 // Estados do formulário
 const remocao = ref({
@@ -150,62 +152,90 @@ const enviarOrdemRemocao = async () => {
     return;
   }
   
-  const { data, hora } = getDataHoraAtual(); // Obtém data e hora atuais
-
-  const payload = {
-    wms_os: {
-      OSID: remocao.value.op, 
-      MotCod: "wallace", 
-      OSOpTck: remocao.value.op,
-      OSPrioridade: "0",
-      OSBlocoSuger: remocao.value.blocoSugerido,
-      OSData: data, 
-      OSHora: hora 
-    },
-    wms_itemos: [
-      {
+  try {
+    getOEStore.$reset();
+    
+    const dadosOE = await getOEStore.getOE({ 
+      optck: remocao.value.op,
+      status: '',
+      dataIni: '',
+      dataFim: '',
+      tagBag: '',
+      osid: '',
+      lote: '',
+      salto: 0,
+      regPPagina: 9999
+    });
+    
+    if (!dadosOE || !Array.isArray(dadosOE) || dadosOE.length === 0) {
+      mensagemResultado.value = {
+        mostrar: true,
+        tipo: 'error',
+        titulo: 'OP não encontrada!',
+        texto: `Não foram encontrados dados para a OP: ${remocao.value.op}`
+      };
+      return;
+    }
+    
+    const primeiroItem = dadosOE[0];
+    
+    // Obtém a data e hora atuais
+    const agora = new Date();
+    const ano = agora.getFullYear();
+    const mes = String(agora.getMonth() + 1).padStart(2, '0');
+    const dia = String(agora.getDate()).padStart(2, '0');
+    const horas = String(agora.getHours()).padStart(2, '0');
+    const minutos = String(agora.getMinutes()).padStart(2, '0');
+    
+    const dataAtual = `${ano}${mes}${dia}`;
+    const horaAtual = `${horas}:${minutos}`;
+    
+    const payload = {
+      wms_os: {
         OSID: "",
-        ItOSItem: "",
+        MotCod: "", 
+        OSOpTck: remocao.value.op,
+        OSPrioridade: primeiroItem.osprioridade || "0",
+        OSBlocoSuger: remocao.value.blocoSugerido ,
+        OSData: dataAtual, 
+        OSHora: horaAtual
+      },
+      wms_itemos: dadosOE.map(item => ({
+        OSID: "",
+        ItOSItem: item.itOSItem || "",
         OpTck: remocao.value.op,
         EmpiCod: remocao.value.empilhadeira,
-        MotCod: "",
-        ItOSData: data, 
-        ItOSHora: hora, 
-        ItOsTagBag: "",
-        ItOsOrigem: "",
-        ItOsTagOrigem: "",
-        ItOsDestino: remocao.value.blocoSugerido,
-        ItOsTagDestino: "",
-        ItOSStatus: "",
-        Lote: "",
-        itOsObs: ""
-      }
-    ]
-  };
-  
-  try {
-    console.log("payload da operação: ", payload);
-    const response = await ordemRemocaoStore.ordemRemocao(payload);
-    console.log('Resposta da API: ', response);
+        MotCod: item.motCod || "",
+        ItOSData: dataAtual,
+        ItOSHora: horaAtual || "", 
+        ItOsTagBag: item.itOsTagBag || "",
+        ItOsOrigem: item.itOsOrigem || "",
+        ItOsTagOrigem: item.itOsTagOrigem || "",
+        ItOsDestino: remocao.value.blocoSugerido || item.itOsDestino,
+        ItOsTagDestino: item.itOsTagDestino || "",
+        ItOSStatus: "AB",
+        Lote: item.lote || item.itOSLote || "",
+        ItOsPeso: item.itOsPeso,
+        itOsObs: item.itOsObs || ""
+      }))
+    };
     
-    // Verifica se a resposta foi bem-sucedida
+    const response = await WMSOSStore.WMSOS(payload);
+    
     if (response && response.code === 600) {
-      // Exibe mensagem de sucesso
       mensagemResultado.value = {
         mostrar: true,
         tipo: 'success',
         titulo: 'Sucesso!',
-        texto: `${response.message} - Código: ${response.code}. Ordem: ${response.data}`
+        texto: `${response.message} - Código: ${response.code}. Ordem: ${response.data}. Total de itens: ${payload.wms_itemos.length}`
       };
       
-      // Limpa o formulário após sucesso
       remocao.value = {
         op: '',
         blocoSugerido: '',
         empilhadeira: null
       };
     } else {
-      // Exibe mensagem de erro se o código não for 600
       mensagemResultado.value = {
         mostrar: true,
         tipo: 'error',
@@ -214,31 +244,27 @@ const enviarOrdemRemocao = async () => {
       };
     }
     
-    // Emite evento para o componente pai
     emit('ordem-enviada', { tipo: 'operacao', response, payload });
     
   } catch (error) {
     console.error('Erro ao enviar operação: ', error);
     
-    // Exibe mensagem de erro
     mensagemResultado.value = {
       mostrar: true,
       tipo: 'error',
       titulo: 'Erro de Comunicação!',
-      texto: 'Não foi possível enviar a operação. Tente novamente.'
+      texto: error.message || 'Não foi possível enviar a operação. Tente novamente.'
     };
     
-    emit('ordem-enviada', { tipo: 'operacao', error, payload });
+    emit('ordem-enviada', { tipo: 'operacao', error });
   }
 };
 
-// Função para carregar empilhadeiras
 const carregarEmpilhadeiras = async () => {
   loadingEmpilhadeiras.value = true;
   try {
     const dados = await empilhadeiraStore.empilhadeira();
     empilhadeiras.value = Array.isArray(dados) ? dados : [];
-    console.log('Empilhadeiras carregadas:', empilhadeiras.value);
   } catch (error) {
     console.error('Erro ao carregar empilhadeiras:', error);
     empilhadeiras.value = [];
@@ -246,8 +272,6 @@ const carregarEmpilhadeiras = async () => {
     loadingEmpilhadeiras.value = false;
   }
 };
-
-// Lifecycle hooks
 onMounted(() => {
   carregarEmpilhadeiras();
 });

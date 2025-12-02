@@ -13,7 +13,7 @@
             color="primary" 
             @click="$emit('atualizar')"
             :loading="loading"
-            prepend-icon="mdi-refresh"
+            prepend-icon="mdi-refresh"    
             variant="elevated"
             size="default"
           >
@@ -93,7 +93,7 @@
         <template v-slot:top>
           <div class="table-toolbar pa-3">
             <div class="d-flex justify-space-between align-center">
-              <h3 class="table-title">Guia de Entrada - Dados</h3>
+              <h3 class="table-title">Produção e parada - Dados</h3>
               <div class="d-flex ga-2">
                 <!-- Botão para configurar colunas -->
                 <v-btn
@@ -449,7 +449,7 @@ const normalizarChave = (key) => {
  * Verifica se o campo é numérico
  */
 const isNumericField = (fieldKey) => {
-  const numericFields = ['parQtdVez', 'maqCod', 'peso', 'quant', 'quantidade', 'valor', 'val', 'num', 'qtd', 'tx'];
+  const numericFields = ['parQtdVez', 'peso', 'quant', 'quantidade', 'valor', 'val', 'num', 'qtd', 'tx'];
   return numericFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
 

@@ -1,6 +1,5 @@
 <template>
-  <BasePage>
-    <v-container>
+    <v-container class="container">
       <v-card>
         <v-card-title>
           <h1>Log Movimentações</h1>
@@ -8,7 +7,7 @@
         
         <v-card-text>
           <!-- Seção de Filtros -->
-          <div class="w-100 pa-4 border rounded-xl elevation-2 mb-4">
+          <div class=" pa-4 border rounded-xl elevation-2 mb-4">
             <div class="text-h6 text-left mb-3">Filtros</div>
             <v-form @submit.prevent="onFilter">
               <v-row align="start" justify="start">
@@ -67,7 +66,6 @@
         </v-card-text>
       </v-card>
     </v-container>
-  </BasePage>
 </template>
 
 <script setup>
@@ -89,7 +87,7 @@ const mostrarTabela = ref(false);
 const selectedTipo = ref('');
 const dataInicial = ref('');
 const dataFinal = ref('');
-const tipos = ref(['Embegadora', 'Inventário', 'Pesagem', 'Empilhadeira']);
+const tipos = ref(['Embegadora', 'Inventario', 'Pesagem', 'Empilhadeira']);
 
 // Função para filtrar e carregar dados da API
 const onFilter = async () => {
@@ -169,6 +167,9 @@ h1 {
   text-align: center;
 }
 
+.container {
+  min-width: 1300px;
+}
 /* Card principal */
 .v-card {
   border-radius: 12px;

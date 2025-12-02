@@ -18,7 +18,7 @@ export const prodPar = defineStore('prodPar', {
                 const tokenStore = useToken();
                 await tokenStore.getToken();
 
-                const tokenCrp = localStorage.getItem('api_token');
+                const tokenCrp = localStorage.getItem('api_token_Node');
                 const token = CryptoJS.AES.decrypt(tokenCrp, secretKey).toString(CryptoJS.enc.Utf8);
 
                 if(!token) {
@@ -35,7 +35,7 @@ export const prodPar = defineStore('prodPar', {
                     
                 const url = queryParams ? `?${queryParams}` : '';
                 
-                const api = mande(`${import.meta.env.VITE_JAVA_API_BASE_URL}/getProdParada${url}`, {
+                const api = mande(`${import.meta.env.VITE_NODE_API_BASE_URL}/getProdParada${url}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'

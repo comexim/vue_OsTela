@@ -64,16 +64,12 @@
 
 	<v-navigation-drawer
         v-model="wms"
-        :location="isRightDrawer ? 'end' : 'start'"
         temporary
         :scrim="false"
-        width="400"
+        width="380"
       >
         <v-card>
           <v-card-title class="d-flex align-center">
-            <v-btn icon @click="toggleDrawerSide">
-              <v-icon>{{ isRightDrawer ? 'mdi-arrow-left' : 'mdi-arrow-right' }}</v-icon>
-            </v-btn>
             <v-spacer></v-spacer>
             <v-select
               v-model="selectedTipo"
@@ -89,21 +85,21 @@
             </v-btn>
           </v-card-title>
           <v-card-text class="pa-0">
-            <WmsComponent :tipo="selectedTipo" />
+            <WmsComponent :tipo="selectedTipo" @filtrado="handleWMSFiltrado" />
           </v-card-text>
         </v-card>
       </v-navigation-drawer>
 
 	<v-app-bar flat class="border-b">
 		<v-app-bar-nav-icon @click="isDrawerOpen = !isDrawerOpen" />
-		<v-btn v-if="isMapaPage && dataUser" variant="tonal" color="blue" @click="wms = !wms">WMS</v-btn>
+		<v-btn v-if="isMapaPage" variant="tonal" color="blue" @click="wms = !wms">WMS</v-btn>
 		<template #append>
 			<v-menu>
 				<template v-slot:activator="{ props }">
 					<v-avatar v-bind="props">
 						<v-img
 							cover
-							src="https://i.pinimg.com/originals/92/4a/56/924a567899367737564d02d562a91199.jpg" />
+							src="https://pluspng.com/img-png/user-png-icon-big-image-png-2240.png" />
 					</v-avatar>
 				</template>
 				<v-card min-width="200px">
@@ -118,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUsers } from '../stores/Auth/AuthLogin';
 import WmsComponent from '../pages/consultas/components/wms.vue';
@@ -126,6 +122,7 @@ import WmsComponent from '../pages/consultas/components/wms.vue';
 const router = useRouter();
 const nomeUsuario = ref('');
 const dataUser = ref(localStorage.getItem('data') === 'true');
+const userDireitos = ref({});
 
 onMounted(() => {
   try {
@@ -137,8 +134,13 @@ onMounted(() => {
     } else {
       nomeUsuario.value = 'Usuário';
     }
+
+    // Carrega os direitos do usuário
+    const direitosStr = localStorage.getItem('userDireitos');
+    if (direitosStr) {
+      userDireitos.value = JSON.parse(direitosStr);
+    }
   } catch (e) {
-    console.error("Erro ao acessar o usuário do localStorage:", e);
     nomeUsuario.value = 'Usuário';
   }
 });
@@ -151,18 +153,52 @@ async function logout() {
 
 const isDrawerOpen = ref(false);
 const wms = ref(false);
-const isRightDrawer = ref(false);
 
 // Variáveis para o componente WMS
 const selectedTipo = ref(null);
-const tipoOptions = ['Remoção','Remoção OP', 'Despejo'];
 
-const Movimentos = [
-  ['Ordem de Serviço'],
-  ['Guia de entrada'],
-  ['OS X Moega'],
-  ['Apontamento Imãs'],
-];
+// Computed para filtrar tipos baseado nas permissões
+const tipoOptions = computed(() => {
+  const options = ['Filtro']; // Filtro sempre disponível
+  
+  // Adiciona as opções privadas apenas se o usuário tiver permissão
+  if (hasPermission('MotDirRem')) {
+    options.unshift('Remoção Lote', 'Remoção OP', 'Despejo');
+  }
+  
+  return options;
+});
+
+// Função para verificar se o usuário tem permissão
+const hasPermission = (permission) => {
+  return userDireitos.value[permission] === 'S';
+};
+
+// Filtra os itens de Movimentos baseado nas permissões
+const Movimentos = computed(() => {
+  const items = [];
+  
+  if (hasPermission('MotDirOS')) {
+    items.push(['Ordem de Serviço']);
+  }
+  
+  // Guia de entrada não tem restrição específica mencionada, então sempre exibe
+  items.push(['Guia de entrada']);
+  
+  if (hasPermission('MotDirOsMoe')) {
+    items.push(['OS X Moega']);
+  }
+  
+  if (hasPermission('MotDirImas')) {
+    items.push(['Apontamento Imãs']);
+  }
+  
+  if (hasPermission('MotDirSilo')) {
+    items.push(['Zerar silos']);
+  }
+  
+  return items;
+});
 
 const Consultas = [
   ['Mapa WMS'],
@@ -172,11 +208,23 @@ const Relatorios = [
   ['Log Movimentações'],
   ['Produção e Parada por maquinário'],
   ['Relatório Imas'],
+  ['Saldo Silos (WMS X SUP)'],
 ];
 
 const isMapaPage = computed(() => router.currentRoute.value.path === '/consultas/mapa');
 
+// Watch para monitorar abertura/fechamento do WMS
+watch(wms, (newValue) => {
+  // Emitir evento global para o mapa
+  window.dispatchEvent(new CustomEvent('wms-toggle', { 
+    detail: { isOpen: newValue } 
+  }));
+});
+
 function navigateTo(title) {
+  // Fecha o drawer antes de navegar
+  isDrawerOpen.value = false;
+  
   if (title === 'Mapa WMS') {
     router.push('/consultas/mapa');
   }
@@ -201,11 +249,21 @@ function navigateTo(title) {
   if (title === 'Ordem de Serviço') {
     router.push('/movimentos/ordemServico')
   }
+  if (title === 'Zerar silos') {
+    router.push('/movimentos/silos')
+  }
+  if (title === 'Saldo Silos (WMS X SUP)') {
+    router.push('/relatorios/saldoSiloWMSXSUP')
+  }
 }
 
-function toggleDrawerSide() {
-  isRightDrawer.value = !isRightDrawer.value;
-}
+// Função para lidar com filtrado do WMS
+const handleWMSFiltrado = (enderCodList) => {
+  // Emitir evento global para que o mapa possa escutar
+  window.dispatchEvent(new CustomEvent('wms-filtrado', { 
+    detail: { enderCods: enderCodList } 
+  }));
+};
 </script>
 
 <style scoped>

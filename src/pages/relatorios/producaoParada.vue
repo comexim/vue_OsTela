@@ -1,6 +1,5 @@
 <template>
-  <BasePage>
-    <v-container>
+    <v-container class="container">
       <v-card>
         <v-card-title>
           <h1>Produção e parada de maquinários</h1>
@@ -77,7 +76,6 @@
         </v-card-text>
       </v-card>
     </v-container>
-  </BasePage>
 </template>
 
 <script setup>
@@ -86,9 +84,11 @@ import BasePage from '@/components/BasePage.vue';
 import TableProdPar from './components/tableProdPar.vue'
 import { prodPar } from '../../stores/Consultas/getProdPar';
 import { maquinario } from '../../stores/Consultas/getMaquinario';
+import { motivoParada } from '../../stores/Consultas/getMotivoParada';
 
 const prodParStore = prodPar();
 const maquinarioStore = maquinario();
+const motivoParadaStore = motivoParada();
 
 const dados = ref([]);
 const headers = ref([]);
@@ -104,6 +104,18 @@ const op = ref('');
 const selectedMaquinario = ref('');
 const dataInicial = ref('');
 const dataFinal = ref('');
+const motivosParada = ref([]);
+
+// Função para carregar motivos de parada
+const carregarMotivosParada = async () => {
+  try {
+    const response = await motivoParadaStore.getMotivoParada();
+    motivosParada.value = response;
+    console.log('Motivos de parada carregados:', motivosParada.value);
+  } catch (error) {
+    console.error('Erro ao carregar motivos de parada:', error);
+  }
+};
 
 // Função para carregar maquinários
 const carregarMaquinarios = async () => {
@@ -140,6 +152,30 @@ const formatarTituloColuna = (key) => {
   };
   
   return mapeamento[key] || key;
+};
+
+// Função para substituir códigos dos motivos pelas descrições completas
+const substituirCodigosMotivos = (dadosArray) => {
+  if (!dadosArray || dadosArray.length === 0) return;
+  
+  dadosArray.forEach(item => {
+    // Procura pela chave 'parMotivo' (ou variações)
+    const chaveMotivo = Object.keys(item).find(key => 
+      key.toLowerCase() === 'parmotivo' || 
+      key === 'parMotivo'
+    );
+    
+    if (chaveMotivo && item[chaveMotivo]) {
+      const codigoOriginal = item[chaveMotivo];
+      const descricao = motivoParadaStore.getDescricaoPorCodigo(codigoOriginal);
+      item[chaveMotivo] = descricao;
+      
+      // Log para debug
+      if (descricao !== codigoOriginal) {
+        console.log(`Substituído: ${codigoOriginal} → ${descricao}`);
+      }
+    }
+  });
 };
 
 // Função para gerar headers dinâmicos baseados no labelMap da API
@@ -194,7 +230,7 @@ const onFilter = async () => {
       op: op.value || '',
       dataIni: dataInicial.value ? dataInicial.value.replace(/-/g, '') : '', // Converte YYYY-MM-DD para YYYYMMDD
       dataFim: dataFinal.value ? dataFinal.value.replace(/-/g, '') : '', // Converte YYYY-MM-DD para YYYYMMDD
-      maqCod: selectedMaquinario.value || '',
+      maqCod: selectedMaquinario.value || 'Todos',
       usuario: localStorage.getItem('user')
     };
 
@@ -205,11 +241,15 @@ const onFilter = async () => {
     
     if (Array.isArray(response)) {
       dados.value = response;
+      // Substitui códigos pelos nomes dos motivos
+      substituirCodigosMotivos(dados.value);
       headers.value = gerarHeaders(response);
       labelMapCompleto.value = []; 
     } else if (response && Array.isArray(response.listaMov)) {
       // Trata o caso específico da API prodPar que retorna listaMov
       dados.value = response.listaMov;
+      // Substitui códigos pelos nomes dos motivos
+      substituirCodigosMotivos(dados.value);
       headers.value = gerarHeaders(response.listaMov, response.labelMap);
       labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
       console.log('LabelMap recebido:', response.labelMap);
@@ -217,10 +257,14 @@ const onFilter = async () => {
       console.log('Headers gerados:', headers.value);
     } else if (response && Array.isArray(response.data)) {
       dados.value = response.data;
+      // Substitui códigos pelos nomes dos motivos
+      substituirCodigosMotivos(dados.value);
       headers.value = gerarHeaders(response.data, response.labelMap);
       labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
     } else if (response && Array.isArray(response.listaMov)) {
       dados.value = response.listaMov;
+      // Substitui códigos pelos nomes dos motivos
+      substituirCodigosMotivos(dados.value);
       headers.value = gerarHeaders(response.listaMov, response.labelMap);
       labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
       console.log('LabelMap recebido:', response.labelMap);
@@ -246,6 +290,7 @@ const onFilter = async () => {
 
 onMounted(() => {
   carregarMaquinarios();
+  carregarMotivosParada();
   console.log('Página carregada. Use os filtros para buscar dados.');
 });
 </script>
@@ -256,6 +301,10 @@ h1 {
   font-size: 1.8rem;
   margin-bottom: 0.5rem;
   text-align: center;
+}
+
+.container {
+  min-width: 1300px;
 }
 
 /* Card principal */

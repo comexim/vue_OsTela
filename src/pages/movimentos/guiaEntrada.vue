@@ -1,6 +1,5 @@
 <template>
-  <BasePage>
-    <v-container>
+    <v-container class="container">
       <v-card>
         <v-card-title>
           <h1>Guia de Entrada</h1>
@@ -66,7 +65,6 @@
         </v-card-text>
       </v-card>
     </v-container>
-  </BasePage>
 </template>
 
 <script setup>
@@ -203,6 +201,10 @@ h1 {
   font-size: 1.8rem;
   margin-bottom: 0.5rem;
   text-align: center;
+}
+
+.container {
+  min-width: 1300px;
 }
 
 /* Card principal */

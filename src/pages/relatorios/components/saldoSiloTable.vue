@@ -50,8 +50,15 @@
         :items="filteredItems"
         :loading="loading"
         class="data-table-custom"
-        :items-per-page="10"
-        :items-per-page-options="[10, 15, 25, 50, 100]"
+        :items-per-page="15"
+        :items-per-page-options="[
+          { value: 10, title: '10' },
+          { value: 15, title: '15' },
+          { value: 25, title: '25' },
+          { value: 50, title: '50' },
+          { value: 100, title: '100' },
+          { value: -1, title: 'Todos' }
+        ]"
         :search="buscaLocal"
         show-current-page
         fixed-header
@@ -60,14 +67,13 @@
         <template v-slot:top>
           <div class="table-toolbar pa-3">
             <div class="d-flex justify-space-between align-center">
-              <h3 class="table-title">Dados do Relatório</h3>
+              <h3 class="table-title">Saldo Silo WMS x SUP - Dados</h3>
               <v-btn
-                size="small"
                 color="success"
                 variant="tonal"
                 prepend-icon="mdi-microsoft-excel"
                 @click="exportarDados"
-                v-if="dados.length > 0"
+                :disabled="dados.length === 0"
               >
                 Exportar Excel
               </v-btn>
@@ -79,7 +85,7 @@
           <div class="no-data-container">
             <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-table-off</v-icon>
             <h3 class="text-grey-darken-1 mb-2">Nenhum dado encontrado</h3>
-            <p class="text-grey">Configure os filtros e clique em "Filtrar" para carregar os dados.</p>
+            <p class="text-grey">Clique em "Carregar Dados" para buscar as informações.</p>
           </div>
         </template>
         
@@ -94,99 +100,21 @@
           </div>
         </template>
 
-        <!-- Template para células com valores numéricos -->
+        <!-- Template para células com valores formatados -->
         <template v-slot:item="{ item }">
           <tr class="table-row-hover">
             <td v-for="header in headers" :key="header.key" class="table-cell text-left">
-              <span v-if="isNumericField(header.key)" class="numeric-value">
-                {{ formatNumericValue(item[header.key]) }}
-              </span>
-              <span v-else-if="isDateField(header.key)" class="date-value">
-                {{ formatDateValue(item[header.key]) }}
-              </span>
-              <span v-else-if="isEquipField(header.key)" class="">
-                {{ formatEquipamento(item[header.key]) }}
-              </span>
-              <span v-else class="text-value">
-                {{ item[header.key] }}
+              <span 
+                :class="{
+                  'numeric-value': isNumericField(header.key),
+                  'date-value': isDateField(header.key),
+                  'text-value': !isNumericField(header.key) && !isDateField(header.key)
+                }"
+              >
+                {{ formatCellValue(item[header.key], header.key) }}
               </span>
             </td>
           </tr>
-        </template>
-
-        <template v-slot:bottom="{ page, pageCount, itemsPerPage, setItemsPerPage, setPage }">
-          <div class="table-footer pa-4">
-            <v-row align="center" justify="space-between">
-              <!-- Informações dos registros -->
-              <v-col cols="12" md="4" class="d-flex align-center">
-                <span class="text-body-2 text-grey-darken-1">
-                  Mostrando {{ ((page - 1) * itemsPerPage) + 1 }}-{{ Math.min(page * itemsPerPage, filteredItems.length) }} 
-                  de {{ filteredItems.length }} registros
-                  <span v-if="buscaLocal" class="text-primary"> (filtrados de {{ dados.length }} total)</span>
-                </span>
-              </v-col>
-              
-              <!-- Controle de itens por página -->
-              <v-col cols="12" md="4" class="d-flex justify-center align-center">
-                <span class="text-body-2 mr-3">Registros por página:</span>
-                <v-select
-                  :model-value="itemsPerPage"
-                  @update:model-value="setItemsPerPage"
-                  :items="[10, 25, 50, 100, { title: 'Todos', value: filteredItems.length || 1 }]"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  style="max-width: 120px;"
-                  class="items-per-page-select"
-                />
-              </v-col>
-              
-              <!-- Controles de paginação -->
-              <v-col cols="12" md="4" class="d-flex justify-end align-center">
-                <div class="d-flex align-center ga-2">
-                  <span class="text-body-2 mr-3">
-                    Página {{ page }} de {{ pageCount || 1 }}
-                  </span>
-                  
-                  <v-btn
-                    :disabled="page <= 1"
-                    @click="setPage(1)"
-                    variant="text"
-                    icon="mdi-page-first"
-                    size="small"
-                    class="pagination-btn"
-                  />
-                  
-                  <v-btn
-                    :disabled="page <= 1"
-                    @click="setPage(page - 1)"
-                    variant="text"
-                    icon="mdi-chevron-left"
-                    size="small"
-                    class="pagination-btn"
-                  />
-                  
-                  <v-btn
-                    :disabled="page >= pageCount"
-                    @click="setPage(page + 1)"
-                    variant="text"
-                    icon="mdi-chevron-right"
-                    size="small"
-                    class="pagination-btn"
-                  />
-                  
-                  <v-btn
-                    :disabled="page >= pageCount"
-                    @click="setPage(pageCount)"
-                    variant="text"
-                    icon="mdi-page-last"
-                    size="small"
-                    class="pagination-btn"
-                  />
-                </div>
-              </v-col>
-            </v-row>
-          </div>
         </template>
       </v-data-table>
     </v-card>
@@ -194,8 +122,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
-import { cadAux } from '../../../stores/Movimentos/getCadAux';
+import { ref, computed, watch } from 'vue';
 
 // Props
 const props = defineProps({
@@ -224,34 +151,13 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['atualizar', 'update:busca']);
 
-
 // Data local
 const buscaLocal = ref(props.busca);
-const equipOptions = ref([]);
-
-const cadAuxStore = cadAux();
 
 // Watch para sincronizar busca
 watch(() => props.busca, (newVal) => {
   buscaLocal.value = newVal;
 });
-
-async function loadCadAux() {
-  try {
-    const response = await cadAuxStore.cadAux("APT");
-    equipOptions.value = response.map(item => ({
-      label: item.cadAuxDescr,
-      value: item.cadAuxCod
-    }));
-    console.log('CadAux carregado:', equipOptions.value);
-  } catch (error) {
-    console.error('Erro ao carregar cadAux equip: ', error);
-  }
-}
-
-onMounted(()=> {
-  loadCadAux();
-})
 
 // Computed para filtrar dados baseado na busca
 const filteredItems = computed(() => {
@@ -265,28 +171,15 @@ const filteredItems = computed(() => {
   });
 });
 
-const equipMap = computed(() => {
-  const map = {};
-  equipOptions.value.forEach(item => {
-    map[item.value] = item.label;
-  });
-  return map;
-})
-
 // Funções auxiliares para formatação
 const isNumericField = (fieldKey) => {
-  const numericFields = ['Quant', 'quant', 'quantidade', 'valor', 'peso'];
+  const numericFields = ['capacidade', 'saldowms', 'sup', 'difer', 'saldo', 'diferenca', 'sacas', 'peso', 'quantidade', 'quant', 'valor'];
   return numericFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
 
 const isDateField = (fieldKey) => {
-  const dateFields = ['Data', 'data', 'date'];
+  const dateFields = ['data', 'date'];
   return dateFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
-};
-
-const isEquipField = (fieldKey) => {
-  const equipFields = ['Equipto', 'equipamento', 'Equip'];
-  return equipFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
 
 const formatNumericValue = (value) => {
@@ -295,12 +188,6 @@ const formatNumericValue = (value) => {
   if (isNaN(num)) return value;
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
-
-const formatEquipamento = (value) => {
-  if (!value) return '-';
-  console.log('Formatando equipamento:', value, 'Mapa:', equipMap.value);
-  return equipMap.value[value] || value;
-}
 
 const formatDateValue = (value) => {
   if (!value) return '-';
@@ -312,6 +199,15 @@ const formatDateValue = (value) => {
     return `${day}/${month}/${year}`;
   }
   return value;
+};
+
+const formatCellValue = (value, fieldKey) => {
+  if (isNumericField(fieldKey)) {
+    return formatNumericValue(value);
+  } else if (isDateField(fieldKey)) {
+    return formatDateValue(value);
+  }
+  return value || '-';
 };
 
 // Função para exportar dados
@@ -366,8 +262,6 @@ const exportarDados = () => {
         } else if (isDateField(header.key)) {
           cellClass = 'date';
           value = formatDateValue(value);
-        } else if (isEquipField(header.key)) {
-          value = formatEquipamento(value);
         }
         
         // Escapa caracteres especiais para HTML
@@ -399,7 +293,7 @@ const exportarDados = () => {
     const dataFormatada = agora.toLocaleDateString('pt-BR').replace(/\//g, '-');
     const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, 'h');
     
-    link.setAttribute('download', `Relatorio_Imas_${dataFormatada}_${horaFormatada}.xls`);
+    link.setAttribute('download', `Saldo_Silo_WMS_SUP_${dataFormatada}_${horaFormatada}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -512,41 +406,6 @@ const exportarDados = () => {
   color: white;
   font-weight: 500;
   margin: 0;
-}
-
-/* Footer da tabela */
-.table-footer {
-  background-color: #f5f5f5;
-  border-top: 1px solid #e0e0e0;
-}
-
-/* Controles de paginação */
-.pagination-btn {
-  min-width: 36px !important;
-  width: 36px;
-  height: 36px;
-}
-
-.pagination-btn:hover {
-  background-color: rgba(25, 118, 210, 0.1);
-  color: #1976d2;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.4;
-}
-
-/* Seletor de itens por página */
-.items-per-page-select :deep(.v-field__input) {
-  min-height: 32px;
-}
-
-.items-per-page-select :deep(.v-field__outline) {
-  border-color: #e0e0e0;
-}
-
-.items-per-page-select :deep(.v-field--focused .v-field__outline) {
-  border-color: #1976d2;
 }
 
 /* Estados vazios e loading */

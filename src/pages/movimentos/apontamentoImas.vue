@@ -1,6 +1,5 @@
 <template>
-  <BasePage>
-    <v-container class="centralizado">
+    <v-container class="centralizado container">
       <v-card class="formulario-card">
         <v-card-title>
           <h1>Apontamento Imãs</h1>
@@ -83,12 +82,10 @@
         </v-card-text>
       </v-card>
     </v-container>
-  </BasePage>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import BasePage from '@/components/BasePage.vue';
 import { cadAux } from '../../stores/Movimentos/getCadAux';
 import { apImas } from '../../stores/Consultas/postApImas';
 
@@ -136,7 +133,7 @@ const salvar = async () => {
     const response = await apImasStore.apImas(payload);
     console.log('Resposta da API:', response);
 
-    if (response.success) {
+    if (response === "success" || response.data === "success" || response.code === 600 || response.type === "seccess") {
       alert('Dados enviados com sucesso!');
 
       // Limpa os campos do formulário
@@ -145,7 +142,7 @@ const salvar = async () => {
       quantidade.value = null;
       observacao.value = '';
     } else {
-      alert(`Erro ao enviar dados: ${response.message}`);
+      alert(`${response.message}`);
     }
   } catch (error) {
     console.error('Erro inesperado:', error);
@@ -174,6 +171,10 @@ h1 {
   max-width: 500px;
   margin: 0 auto;
   padding: 10px;
+}
+
+.container {
+  min-width: 500px;
 }
 
 .formulario-card {

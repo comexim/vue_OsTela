@@ -175,13 +175,13 @@ const cadAuxStore = cadAux();
 // Headers específicos para Ordem de Serviço
 const headersOrdemServico = computed(() => [
   {
-    title: 'ID OS',
+    title: 'ID',
     key: 'osid',
     align: 'start',
     sortable: true
   },
   {
-    title: 'Ticket',
+    title: 'Ticket/OS',
     key: 'opTck',
     align: 'start',
     sortable: true

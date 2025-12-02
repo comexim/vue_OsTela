@@ -32,9 +32,15 @@
 						</div>
 						
 						<div class="mb-2">
-							<div class="d-flex justify-space-between text-bold text-black mb-0">
-								<span><strong>Lote:</strong> {{ item.siloLote }}</span>
-								<span><strong>Capacidade:</strong> {{ item.siloCapac }}</span>
+							<div class="d-flex justify-space-between text-bold text-black mb-1">
+								<div class="lote-container">
+									<div class="text-caption"><strong>Lote:</strong></div>
+									<div class="lote-value text-body-2"><strong>{{ item.siloLote }}</strong></div>
+								</div>
+								<div class="capacidade-container text-right">
+									<div class="text-caption"><strong>Capacidade:</strong></div>
+									<div class="text-body-2">{{ item.siloCapac }}</div>
+								</div>
 							</div>
 							<div class="d-flex justify-space-between text-bold text-black mb-1">
                                 <span><strong>Saldo:</strong> {{ item.siloSaldo }}</span>
@@ -121,5 +127,28 @@ defineProps({
 
 .white-background {
 	background-color: white !important;
+}
+
+.lote-container {
+	flex: 1;
+	margin-right: 8px;
+}
+
+.capacidade-container {
+	flex: 1;
+	margin-left: 8px;
+}
+
+.lote-value {
+	word-break: break-word;
+	word-wrap: break-word;
+	white-space: normal;
+	max-width: 100%;
+	line-height: 1.2;
+}
+
+.text-caption {
+	font-size: 0.75rem !important;
+	line-height: 1.2;
 }
 </style>

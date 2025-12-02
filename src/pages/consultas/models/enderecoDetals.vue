@@ -62,7 +62,7 @@ const headers = ref([
   { title: 'Tag', key: 'bagTag', sortable: false },//Arrumar pra aparecer somente os ultimos 6 numeros
   { title: 'Lote', key: 'bagLote', sortable: false },
   { title: 'Sacas', key: 'sacas', sortable: true },
-  { title: 'OS', key: 'os', sortable: true },
+  { title: 'OS', key: 'osNum', sortable: true },
   { title: 'Linha', key: 'linha', sortable: true },
   { title: '%pen14', key: 'pen14', sortable: true },
   { title: '%pen17', key: 'pen17', sortable: true },

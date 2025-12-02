@@ -1,6 +1,5 @@
 <template>
-  <BasePage>
-    <v-container>
+    <v-container class="container">
       <v-card>
         <v-card-title>
           <h1>Ordem de Serviço</h1>
@@ -129,17 +128,14 @@
         </v-card-text>
       </v-card>
     </v-container>
-  </BasePage>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import BasePage from '@/components/BasePage.vue';
 import OrdemServTable from './components/ordemServTable.vue';
 import DetalhesOrdemServico from './models/detalhesOrdemServico.vue';
 import SelecionarOS from './models/selecionarOS.vue';
 import SelecionarOSParaExclusao from './models/selecionarOSParaExclusao.vue';
-import ExcluirServico from './models/excluirServico.vue';
 import { getOE } from '../../stores/Consultas/getOE';
 
 const OEStore = getOE();
@@ -170,7 +166,7 @@ const dadosExclusao = ref({
 
 // Campos do filtro
 const dataInicial = ref('');
-const dataFinal = ref('');
+const dataFinal = ref(new Date().toISOString().split('T')[0]);
 const ordemServico = ref('');
 const tag = ref('');
 const emAberto = ref('');
@@ -320,14 +316,6 @@ const abrirDetalhes = async (item) => {
   }
 };
 
-// Função para carregar dados da API (mantida para compatibilidade)
-const carregarDados = async () => {
-  // Chama a função de filtro se já tiver dados de filtro
-  if (mostrarTabela.value) {
-    await onFilter();
-  }
-};
-
 // Função para recarregar detalhes quando dados forem alterados
 const recarregarDetalhes = async () => {
   console.log('Recarregando detalhes após alteração de dados...');
@@ -472,6 +460,10 @@ h1 {
 .v-card {
   border-radius: 12px;
   box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.container {
+  min-width: 1300px;
 }
 
 /* Animações */

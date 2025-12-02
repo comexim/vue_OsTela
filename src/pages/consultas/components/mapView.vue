@@ -3,6 +3,7 @@
     <!-- Container da Imagem do Mapa -->
     <div 
       class="image-container" 
+      :class="{ 'wms-open': wmsOpen }"
       ref="imageContainer"
     >
       <v-img
@@ -87,6 +88,10 @@ const props = defineProps({
   filteredEnderCods: {
     type: Array,
     default: () => []
+  },
+  wmsOpen: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -132,15 +137,20 @@ async function loadEnderColor() {
 function onImageLoad() {
   imageLoaded.value = true;
   nextTick(() => {
-    if (galpaoImage.value && galpaoImage.value.$el) {
-      const imgElement = galpaoImage.value.$el.querySelector('img');
-      if (imgElement) {
-        renderedWidth.value = imgElement.clientWidth;
-        renderedHeight.value = imgElement.clientHeight;
-        console.log('Dimensões da imagem:', renderedWidth.value, renderedHeight.value);
-      }
-    }
+    updateImageDimensions();
   });
+}
+
+function updateImageDimensions() {
+  if (galpaoImage.value && galpaoImage.value.$el) {
+    const imgElement = galpaoImage.value.$el.querySelector('img');
+    if (imgElement && imgElement.complete && imgElement.naturalWidth > 0) {
+      renderedWidth.value = imgElement.clientWidth;
+      renderedHeight.value = imgElement.clientHeight;
+      imageLoaded.value = true;
+      console.log('Dimensões da imagem:', renderedWidth.value, renderedHeight.value);
+    }
+  }
 }
 
 function getSquareStyle(item) {
@@ -191,7 +201,6 @@ function getSquareStyle(item) {
     borderRadius: "2px",
     position: "absolute",
     opacity: isFiltered ? 1.0 : 0.7,
-    cursor: isSelectionMode ? "crosshair" : "pointer",
     zIndex: isFiltered ? 10: 1,
   };
 }
@@ -226,6 +235,11 @@ function closeModal() {
 
 onMounted(() => {
   loadEnderColor();
+  
+  // Verifica se a imagem já está carregada (cache do navegador)
+  nextTick(() => {
+    updateImageDimensions();
+  });
 });
 
 </script>
@@ -238,19 +252,25 @@ onMounted(() => {
   position: relative;
   overflow: hidden;
   margin-bottom: -2230px;
+  margin-left: 110px;
   padding-bottom: 0;
 }
 
 /* Container da imagem */
 .image-container {
   position: relative;
-  width: 100%;
+  width: 84%;
   height: auto;
   display: block;
   transition: transform 0.3s ease;
   cursor: default;
   margin-bottom: 0;
   line-height: 0;
+}
+
+/* Classe aplicada quando WMS está aberto */
+.image-container.wms-open {
+  transform: translateX(200px);
 }
 
 /* Imagem do galpão */
@@ -260,6 +280,7 @@ onMounted(() => {
   object-fit: contain;
   border-radius: 12px;
   display: block;
+  transform: scale(1) scaleY(0.99);
   margin: 0;
   padding: 0;
 }
@@ -306,7 +327,7 @@ onMounted(() => {
 /* Desktop/PC */
 @media (min-width: 1200px) {
 	.squares-container {
-    margin-bottom: -100px;
+    margin-bottom: 150px;
   }
 }
 

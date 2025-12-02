@@ -68,7 +68,7 @@ ALTERAÇÕES: Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético 
     <!-- Tabela principal -->
     <v-card class="table-card" elevation="3">
       <v-data-table
-        :headers="headers"
+        :headers="headersDinamicos"
         :items="filteredItems"
         :loading="loading"
         class="data-table-custom"
@@ -138,7 +138,7 @@ ALTERAÇÕES: Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético 
         <!-- Template para células com valores numéricos -->
         <template v-slot:item="{ item }">
           <tr class="table-row-hover">
-            <td v-for="header in headers" :key="header.key" class="table-cell text-left">
+            <td v-for="header in headersDinamicos" :key="header.key" class="table-cell text-left">
               <span 
                 :class="{
                   'numeric-value': isNumericField(header.key),
@@ -382,6 +382,90 @@ watch(itemsPerPage, (newValue) => {
 watch(currentPage, (newValue) => {
 });
 
+// Computed para headers dinâmicos baseado no tipo de relatório
+const headersDinamicos = computed(() => {
+  console.log('🔄 Atualizando headers - Tipo:', tipoRelatorio.value);
+  console.log('📋 Headers originais:', props.headers.map(h => h.key));
+  
+  // Primeiro, adiciona a coluna de sacas se não existir
+  let headersComSacas = [...props.headers];
+  const temSacas = headersComSacas.some(h => h.key === 'sacas');
+  
+  if (!temSacas) {
+    // Encontra a posição da coluna de peso para inserir sacas logo após
+    const indexPeso = headersComSacas.findIndex(h => h.key === 'movEnderPeso');
+    
+    if (indexPeso >= 0) {
+      headersComSacas.splice(indexPeso + 1, 0, {
+        key: 'sacas',
+        title: 'Sacas',
+        align: 'start',
+        sortable: true
+      });
+      console.log('✅ Adicionada coluna Sacas após Peso na posição', indexPeso + 1);
+    }
+  }
+  
+  if (tipoRelatorio.value === 'Analítico') {
+    console.log('✅ Retornando headers (Analítico)');
+    return headersComSacas;
+  }
+  
+  // Para o modo Sintético, adiciona as colunas de Data Fim e Hora Fim
+  const headersSintetico = [...headersComSacas];
+  
+  // Verifica se as colunas de fim já existem nos headers originais
+  const temDataFim = headersSintetico.some(h => h.key === 'movEnderDataFim');
+  const temHoraFim = headersSintetico.some(h => h.key === 'movEnderHoraFim');
+  
+  console.log('🔍 Verificando colunas existentes - Data Fim:', temDataFim, 'Hora Fim:', temHoraFim);
+  
+  // Adiciona as colunas de Data Fim e Hora Fim se não existirem
+  if (!temDataFim) {
+    // Encontra a posição após a coluna de data para inserir a data fim
+    const indexData = headersSintetico.findIndex(h => h.key === 'movEnderData');
+    const indexHora = headersSintetico.findIndex(h => h.key === 'movEnderHora');
+    
+    if (indexHora >= 0) {
+      // Insere Data Fim após Hora
+      headersSintetico.splice(indexHora + 1, 0, {
+        key: 'movEnderDataFim',
+        title: 'Data Fim',
+        align: 'start',
+        sortable: true
+      });
+      console.log('✅ Adicionada coluna Data Fim após Hora na posição', indexHora + 1);
+    } else if (indexData >= 0) {
+      // Se não tem hora, insere após data
+      headersSintetico.splice(indexData + 1, 0, {
+        key: 'movEnderDataFim',
+        title: 'Data Fim',
+        align: 'start',
+        sortable: true
+      });
+      console.log('✅ Adicionada coluna Data Fim após Data na posição', indexData + 1);
+    }
+  }
+  
+  if (!temHoraFim) {
+    // Encontra onde inserir a Hora Fim (após Data Fim)
+    const indexDataFim = headersSintetico.findIndex(h => h.key === 'movEnderDataFim');
+    
+    if (indexDataFim >= 0) {
+      headersSintetico.splice(indexDataFim + 1, 0, {
+        key: 'movEnderHoraFim',
+        title: 'Hora Fim',
+        align: 'start',
+        sortable: true
+      });
+      console.log('✅ Adicionada coluna Hora Fim após Data Fim na posição', indexDataFim + 1);
+    }
+  }
+  
+  console.log('📋 Headers finais (Sintético):', headersSintetico.map(h => `${h.key} (${h.title})`));
+  return headersSintetico;
+});
+
 // Watch para atualizar configuração das colunas quando headers mudam
 watch(() => props.headers, (newHeaders) => {
   if (newHeaders && newHeaders.length > 0) {
@@ -396,6 +480,12 @@ watch(() => props.labelMapCompleto, (newLabelMap) => {
   }
 }, { immediate: true });
 
+// Watch para atualizar configuração quando tipo de relatório muda
+watch(tipoRelatorio, (novoTipo) => {
+  // Força atualização das colunas quando muda o tipo
+  atualizarConfigColunas(headersDinamicos.value, props.labelMapCompleto);
+}, { immediate: false });
+
 // Função para atualizar configuração das colunas
 const atualizarConfigColunas = (headers, labelMapCompleto = null) => {
   
@@ -408,10 +498,13 @@ const atualizarConfigColunas = (headers, labelMapCompleto = null) => {
     { key: 'enderTag', title: 'Tag Ender' },
     { key: 'enderCod', title: 'Endereço' },
     { key: 'motCod', title: 'Usuário' },
-    { key: 'movEnderData', title: 'Data' },
-    { key: 'movEnderHora', title: 'Hora' },
+    { key: 'movEnderData', title: 'Data Início' },
+    { key: 'movEnderHora', title: 'Hora Início' },
+    { key: 'movEnderDataFim', title: 'Data Fim' },
+    { key: 'movEnderHoraFim', title: 'Hora Fim' },
     { key: 'movEnderTipo', title: 'Tipo' },
     { key: 'movEnderPeso', title: 'Peso' },
+    { key: 'sacas', title: 'Sacas' },
     { key: 'movEnderPesoSoltar', title: 'Peso Soltar' }
   ];
   
@@ -484,30 +577,105 @@ const colunasVisiveis = computed(() => {
 
 // Computed para formatar ou não o relatório (Analítico ou Sintético)
 const dadosProcessados = computed(() => {
+  console.log('🔄 Processando dados - Tipo:', tipoRelatorio.value);
+  
   if (tipoRelatorio.value === 'Analítico') {
-    return props.dados;
+    console.log('📊 Modo Analítico - Retornando', props.dados.length, 'registros');
+    // Adiciona cálculo de sacas para cada registro
+    return props.dados.map(item => ({
+      ...item,
+      sacas: item.movEnderPeso ? (parseFloat(item.movEnderPeso) / 59).toFixed(2) : '0.00'
+    }));
   }
+  
+  console.log('📊 Modo Sintético - Processando', props.dados.length, 'registros');
+  
   // Se for Sintético, irá agrupar por lote e somar os pesos
   const agrupados = {};
+  
   props.dados.forEach(item => {
     const lote = item.bagLote;
     if (!lote) return;
+    
+    // Cria uma chave única para ordenação baseada em data e hora
+    const dataHora = `${item.movEnderData}${item.movEnderHora}`;
+    
     if (!agrupados[lote]) {
-      agrupados[lote] = { ...item };
-      agrupados[lote].movEnderPeso = parseFloat(item.movEnderPeso) || 0;
-      agrupados[lote].movEnderPesoSoltar = parseFloat(item.movEnderPesoSoltar) || 0;
+      agrupados[lote] = { 
+        ...item,
+        movEnderPeso: parseFloat(item.movEnderPeso) || 0,
+        movEnderPesoSoltar: parseFloat(item.movEnderPesoSoltar) || 0,
+        // Campos para controlar data/hora início e fim
+        dataHoraInicio: dataHora,
+        dataHoraFim: dataHora,
+        movEnderDataFim: item.movEnderData,
+        movEnderHoraFim: item.movEnderHora,
+        // Array temporário para ordenação
+        _registros: [{ dataHora, data: item.movEnderData, hora: item.movEnderHora }]
+      };
     } else {
+      // Soma os pesos
       agrupados[lote].movEnderPeso += parseFloat(item.movEnderPeso) || 0;
       agrupados[lote].movEnderPesoSoltar += parseFloat(item.movEnderPesoSoltar) || 0;
+      
+      // Adiciona o registro ao array temporário
+      agrupados[lote]._registros.push({ 
+        dataHora, 
+        data: item.movEnderData, 
+        hora: item.movEnderHora 
+      });
+      
+      // Atualiza data/hora início se for anterior
+      if (dataHora < agrupados[lote].dataHoraInicio) {
+        agrupados[lote].dataHoraInicio = dataHora;
+        agrupados[lote].movEnderData = item.movEnderData;
+        agrupados[lote].movEnderHora = item.movEnderHora;
+      }
+      
+      // Atualiza data/hora fim se for posterior
+      if (dataHora > agrupados[lote].dataHoraFim) {
+        agrupados[lote].dataHoraFim = dataHora;
+        agrupados[lote].movEnderDataFim = item.movEnderData;
+        agrupados[lote].movEnderHoraFim = item.movEnderHora;
+      }
     }
   });
 
-  // Formata os valores somados para string
-  Object.values(agrupados).forEach(item => {
+  // Processa os dados agrupados para o formato final
+  const resultado = Object.values(agrupados);
+  resultado.forEach(item => {
+    // Ordena os registros por data/hora para garantir precisão
+    item._registros.sort((a, b) => a.dataHora.localeCompare(b.dataHora));
+    
+    // Define início e fim baseado na ordenação
+    const primeiro = item._registros[0];
+    const ultimo = item._registros[item._registros.length - 1];
+    
+    // Atualiza os campos de data/hora início
+    item.movEnderData = primeiro.data;
+    item.movEnderHora = primeiro.hora;
+    
+    // Define os campos de data/hora fim
+    item.movEnderDataFim = ultimo.data;
+    item.movEnderHoraFim = ultimo.hora;
+    
+    // Formata os valores somados para string
     item.movEnderPeso = item.movEnderPeso.toString();
     item.movEnderPesoSoltar = item.movEnderPesoSoltar.toString();
+    
+    // Calcula sacas (peso/59)
+    item.sacas = (item.movEnderPeso / 59).toFixed(2);
+    
+    // Remove campos temporários
+    delete item.dataHoraInicio;
+    delete item.dataHoraFim;
+    delete item._registros;
   });
-  return Object.values(agrupados);
+  
+  console.log('✅ Dados processados (Sintético):', resultado.length, 'lotes agrupados');
+  console.log('📄 Primeiro item processado:', resultado[0]);
+  
+  return resultado;
 });
 
 // Função para obter ordem da coluna
@@ -530,12 +698,12 @@ const onItemsPerPageChange = (itemsPerPageValue) => {
 
 // Funções auxiliares para formatação
 const isNumericField = (fieldKey) => {
-  const numericFields = ['peso', 'quant', 'quantidade', 'valor', 'val', 'num', 'qtd'];
+  const numericFields = ['peso', 'quant', 'quantidade', 'valor', 'val', 'num', 'qtd', 'sacas'];
   return numericFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
 
 const isDateField = (fieldKey) => {
-  const dateFields = ['data', 'date', 'movenddata'];
+  const dateFields = ['data', 'date', 'movenddata', 'movenddatafim'];
   return dateFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
 
@@ -558,10 +726,18 @@ const formatDateValue = (value) => {
   return value;
 };
 
+// Função para formatar o bagTag
+const formatBagTag = (value) => {
+  if (!value) return '-';
+  return value.slice(-6);
+};
+
 const formatCellValue = (value, fieldKey) => {
-  if (isNumericField(fieldKey)) {
+  if (fieldKey === 'bagTag') {
+    return formatBagTag(value);
+  } else if (isNumericField(fieldKey)) {
     return formatNumericValue(value);
-  } else if (isDateField(fieldKey)) {
+  } else if (isDateField(fieldKey) || fieldKey.includes('Data') || fieldKey.includes('Hora')) {
     return formatDateValue(value);
   }
   return value || '-';
@@ -569,7 +745,7 @@ const formatCellValue = (value, fieldKey) => {
 
 // Função para exportar dados
 const exportarDados = () => {
-  if (props.dados.length === 0) {
+  if (dadosProcessados.value.length === 0) {
     alert('Não há dados para exportar');
     return;
   }
@@ -594,8 +770,8 @@ const exportarDados = () => {
             <tr>
     `;
 
-    // Adiciona cabeçalhos
-    props.headers.forEach(header => {
+    // Adiciona cabeçalhos usando headersDinamicos
+    headersDinamicos.value.forEach(header => {
       excelContent += `<th>${header.title}</th>`;
     });
 
@@ -605,10 +781,10 @@ const exportarDados = () => {
           <tbody>
     `;
 
-    // Adiciona dados
-    props.dados.forEach(item => {
+    // Adiciona dados usando dadosProcessados
+    dadosProcessados.value.forEach(item => {
       excelContent += '<tr>';
-      props.headers.forEach(header => {
+      headersDinamicos.value.forEach(header => {
         let value = item[header.key] || '';
         let cellClass = '';
         
@@ -650,7 +826,8 @@ const exportarDados = () => {
     const dataFormatada = agora.toLocaleDateString('pt-BR').replace(/\//g, '-');
     const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, 'h');
     
-    link.setAttribute('download', `Log_Movimentacoes_${dataFormatada}_${horaFormatada}.xls`);
+    const tipoArquivo = tipoRelatorio.value === 'Sintético' ? 'Sintetico' : 'Analitico';
+    link.setAttribute('download', `Log_Movimentacoes_${tipoArquivo}_${dataFormatada}_${horaFormatada}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -716,7 +893,7 @@ const atualizarPrevisualizacao = () => {
 // Presets de configuração
 const aplicarPresetPadrao = () => {
   // Define colunas essenciais como padrão baseado nos campos do MovEnder
-  const colunasEssenciais = ['baglote', 'enderecod', 'motcod', 'movenddata', 'movendhora', 'movendtipo', 'movendpeso'];
+  const colunasEssenciais = ['baglote', 'enderecod', 'motcod', 'movenddata', 'movendhora', 'movenddatafim', 'movendhorafim', 'movendtipo', 'movendpeso'];
   
   configColunas.value.forEach(coluna => {
     const keyLower = coluna.key.toLowerCase();

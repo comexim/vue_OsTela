@@ -11,6 +11,10 @@ export const ordemRemocao = defineStore('ordemRemocao', {
     actions: {
         async ordemRemocao(payload) {
             try {
+                console.log("==== ENVIANDO PARA API ====");
+                console.log("Endpoint:", `${import.meta.env.VITE_JAVA_API_BASE_URL}/setOrdemRemocao`);
+                console.log("Payload:", JSON.stringify(payload, null, 2));
+                
                 const secretKey = import.meta.env.VITE_SECRET_KEY;
                 const tokenStore = useToken();
                 await tokenStore.getToken();
@@ -31,10 +35,16 @@ export const ordemRemocao = defineStore('ordemRemocao', {
                 })
 
                 const response = await api.post(payload);
+                console.log("==== RESPOSTA DA API ====");
+                console.log(response);
                 this.ordemRemocaoData = response;
                 return response;
             } catch (error) {
-                console.error("Falha ao buscar dados da API empilhadeira, verifique!");
+                console.error("==== ERRO NA API ====");
+                console.error("Status:", error.status);
+                console.error("Response:", error.response);
+                console.error("Body:", error.body);
+                console.error("Erro completo:", error);
                 throw error;
             }
         }
