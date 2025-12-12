@@ -341,6 +341,14 @@ const props = defineProps({
   labelMapCompleto: {
     type: Array,
     default: () => []
+  },
+  resumoInventario: {
+    type: Object,
+    default: () => ({})
+  },
+  tipoSelecionado: {
+    type: String,
+    default: ''
   }
 });
 
@@ -757,14 +765,50 @@ const exportarDados = () => {
       <head>
         <meta charset="utf-8">
         <style>
-          table { border-collapse: collapse; width: 100%; }
+          table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
           th { background-color: #37474f; color: white; font-weight: bold; padding: 8px; border: 1px solid #ccc; text-align: left; }
           td { padding: 8px; border: 1px solid #ccc; text-align: left; }
           .numeric { text-align: left; }
           .date { text-align: left; }
+          .resumo { margin-bottom: 30px; }
+          .resumo h2 { color: #2e7d32; margin-bottom: 15px; }
+          .resumo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+          .resumo-card { border: 1px solid #ddd; padding: 10px; background: #f8f9fa; }
+          .resumo-card strong { display: block; margin-bottom: 5px; color: #666; font-size: 12px; }
+          .resumo-card .value { font-size: 16px; font-weight: bold; }
         </style>
       </head>
       <body>
+    `;
+
+    // Adiciona resumo do inventário se for do tipo Inventario
+    if (props.tipoSelecionado === 'Inventario' && props.resumoInventario && Object.keys(props.resumoInventario).length > 0) {
+      excelContent += `
+        <div class="resumo">
+          <h2>📊 Resumo do Inventário</h2>
+          <div class="resumo-grid">
+            <div class="resumo-card">
+              <strong>Hora Início</strong>
+              <div class="value">${props.resumoInventario.horaInicio || '-'}</div>
+            </div>
+            <div class="resumo-card">
+              <strong>Hora Fim</strong>
+              <div class="value">${props.resumoInventario.horaFim || '-'}</div>
+            </div>
+            <div class="resumo-card">
+              <strong>Total de Bags</strong>
+              <div class="value">${props.resumoInventario.totalBags || 0}</div>
+            </div>
+            <div class="resumo-card">
+              <strong>Total de Sacas</strong>
+              <div class="value">${props.resumoInventario.totalSacas || '0.00'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    excelContent += `
         <table>
           <thead>
             <tr>
@@ -827,7 +871,8 @@ const exportarDados = () => {
     const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, 'h');
     
     const tipoArquivo = tipoRelatorio.value === 'Sintético' ? 'Sintetico' : 'Analitico';
-    link.setAttribute('download', `Log_Movimentacoes_${tipoArquivo}_${dataFormatada}_${horaFormatada}.xls`);
+    const prefixoTipo = props.tipoSelecionado === 'Inventario' ? 'Inventario_' : '';
+    link.setAttribute('download', `${prefixoTipo}Log_Movimentacoes_${tipoArquivo}_${dataFormatada}_${horaFormatada}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

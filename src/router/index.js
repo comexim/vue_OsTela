@@ -62,6 +62,11 @@ const router = createRouter({
                 path: '/relatorios/saldoSiloWMSXSUP',
                 component: () => import('../pages/relatorios/saldoSiloWMSXSUP.vue'),
                 meta: { requireAuth: true, requiredPermission: 'MotAdm'}
+            },
+            {
+                path: '/relatorios/producaoData',
+                component: () => import('../pages/relatorios/producaoData.vue'),
+                meta: { requiredAuth: true, requiredPermission: 'MotAdm'}
             }
     ]
 })

@@ -67,6 +67,32 @@ import { enderColor } from '../../../stores/Consultas/getEnderColor';
 import { useMapSelection } from '../../../composables/useMapSelection';
 import EnderecoDetails from '../models/enderecoDetals.vue';
 
+const userName = localStorage.getItem('user');
+
+// Configurações de ajuste por usuário
+const userAdjustmentConfigs = {
+  'Marco': {
+    iniciais: ['620', '540', '450', '250', '240', '460', '550', '630', '440', '150'],
+    ajusteY: 7
+  },
+  'lucasO': {
+    iniciais: ['620', '540', '450','630','550','460','250','150','240'],
+    ajusteY: 6
+  },
+  // Adicione mais usuários conforme necessário
+};
+
+// Pega a configuração do usuário atual ou usa valores padrão
+const getUserAdjustment = () => {
+  const config = userAdjustmentConfigs[userName] || {
+    iniciais: ['620', '540', '450', '250', '240', '460', '550', '630', '440', '150'],
+    ajusteY: 7
+  };
+  console.log('userName:', userName);
+  console.log('Config aplicada:', config);
+  return config;
+};
+
 // Props
 const props = defineProps({
 	title: {
@@ -191,9 +217,14 @@ function getSquareStyle(item) {
   const filtroAtivo = props.filteredEnderCods.length > 0 && props.filteredEnderCods.length < enderColors.value.length;
   const isFiltered = filtroAtivo && props.filteredEnderCods.includes(item.cod);
 
+  // Ajuste especial para endereços que começam com números específicos (baseado no usuário)
+  const userConfig = getUserAdjustment();
+  const codString = String(item.cod);
+  const ajusteY = userConfig.iniciais.some(inicial => codString.startsWith(inicial)) ? userConfig.ajusteY : 0;
+
   return {
     left: `${x1 - 30}px`,
-    top: `${y1 - 750}px`,
+    top: `${y1 - 750 + ajusteY}px`,
     width: `${width + 2}px`,
     height: `${height + 2}px`,
     backgroundColor: isFiltered ? '#000000' : `rgb(${r}, ${g}, ${b})`,
@@ -266,6 +297,7 @@ onMounted(() => {
   cursor: default;
   margin-bottom: 0;
   line-height: 0;
+  will-change: transform;
 }
 
 /* Classe aplicada quando WMS está aberto */

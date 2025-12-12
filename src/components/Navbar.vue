@@ -1,5 +1,5 @@
 <template>
-	<v-navigation-drawer v-model="isDrawerOpen" permanent :scrim="false">
+  <v-navigation-drawer v-model="isDrawerOpen" :scrim="false" width="320" app>
 		<v-list>
 			<v-list-subheader>OSTela</v-list-subheader>
 
@@ -58,6 +58,25 @@
 					class="text-left"
           @click="navigateTo(title)"
 				/>
+				
+				<v-list-group value="Conciliação" sub-group>
+					<template v-slot:activator="{ props }">
+						<v-list-item
+							v-bind="props"
+							title="Conciliação"
+							prepend-icon="mdi-file-compare"
+							class="text-left"
+						/>
+					</template>
+					<v-list-item
+						v-for="([title], i) in Conciliacao"
+						:key="i"
+						:title="title"
+						:value="title"
+						class="text-left pl-8"
+						@click="navigateTo(title)"
+					/>
+				</v-list-group>
 			</v-list-group>
 		</v-list>
 	</v-navigation-drawer>
@@ -151,7 +170,7 @@ async function logout() {
   router.push('/');
 }
 
-const isDrawerOpen = ref(false);
+const isDrawerOpen = ref(true);
 const wms = ref(false);
 
 // Variáveis para o componente WMS
@@ -208,7 +227,11 @@ const Relatorios = [
   ['Log Movimentações'],
   ['Produção e Parada por maquinário'],
   ['Relatório Imas'],
-  ['Saldo Silos (WMS X SUP)'],
+  ['Saldo Silos (WMS X SUP)']
+];
+
+const Conciliacao = [
+  ['Produção por data']
 ];
 
 const isMapaPage = computed(() => router.currentRoute.value.path === '/consultas/mapa');
@@ -254,6 +277,9 @@ function navigateTo(title) {
   }
   if (title === 'Saldo Silos (WMS X SUP)') {
     router.push('/relatorios/saldoSiloWMSXSUP')
+  }
+  if (title === 'Produção por data') {
+    router.push('/relatorios/producaoData')
   }
 }
 

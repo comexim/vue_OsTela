@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <Navbar v-if="!isLoginPage" />
-    <v-main>
+    <v-main :style="mainStyle">
       <router-view />
     </v-main>
   </v-app>
@@ -17,6 +17,16 @@ const route = useRoute();
 // Verifica se está na página de login
 const isLoginPage = computed(() => {
   return route.path === '/';
+});
+
+// Estilo para não comprimir o conteúdo quando a navbar abre
+const mainStyle = computed(() => {
+  return {
+    marginLeft: '0 !important',
+    paddingLeft: '0 !important',
+    width: '100%',
+    overflow: 'visible'
+  };
 });
 </script>
 

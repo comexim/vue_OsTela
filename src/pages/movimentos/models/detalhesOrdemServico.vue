@@ -744,73 +744,42 @@ const concluirAlteracoes = async () => {
   loadingSalvar.value = true;
   
   try {
-    let itensFormatados;
-    const alteracoesComTodosItens = alteracoesPendentes.value.filter(
-      alt => (alt.tipo === 'incluir' || alt.tipo === 'alterar' || alt.tipo === 'excluir') && alt.dados.todosItens
+    // 🔧 CORREÇÃO: Agora usa dadosLocais que contém TODAS as alterações acumuladas
+    // ao invés de apenas a última alteração do todosItens
+    const itensOS = dadosLocais.value.filter(item => 
+      item.osid === props.itemSelecionado.osid
     );
     
-    const ultimaAlteracao = alteracoesComTodosItens.length > 0 
-      ? alteracoesComTodosItens[alteracoesComTodosItens.length - 1]
-      : null;
+    const itensFormatados = itensOS.map(item => {
+      const numeroItem = parseInt(item.itOSItem) || 0;
+      
+      return {
+        OSID: item.osid || "",
+        ItOSItem: numeroItem.toString(),
+        OpTck: item.opTck || props.itemSelecionado.opTck || "",
+        EmpiCod: item.empiCod || "",
+        MotCod: item.motCod || "",
+        ItOSData: item.itOSData || "",
+        ItOSHora: item.itOSHora || "",
+        ItOsTagBag: item.itOsTagBag || "",
+        ItOsOrigem: item.itOsOrigem || "",
+        ItOsTagOrigem: item.itOsTagOrigem || "",
+        ItOsDestino: item.itOsDestino || "",
+        ItOsTagDestino: item.itOsTagDestino || "",
+        ItOSStatus: item.itOSStatus || "",
+        Lote: item.lote || "",
+        ItOsObs: item.itOsObs || "",
+        ItOsPeso: parseFloat(item.itOsPeso) || 0,
+        ItOsPesoSoltar: parseFloat(item.itOsPesoSoltar) || 0
+      };
+    });
     
-    if (ultimaAlteracao && ultimaAlteracao.dados.todosItens) {
-      itensFormatados = ultimaAlteracao.dados.todosItens.map(item => {
-        const numeroItem = parseInt(item.itOSItem) || 0;
-        
-        return {
-          OSID: item.osid || "",
-          ItOSItem: numeroItem.toString(),
-          OpTck: item.opTck || props.itemSelecionado.opTck || "",
-          EmpiCod: item.empiCod || "",
-          MotCod: item.motCod || "",
-          ItOSData: item.itOSData || "",
-          ItOSHora: item.itOSHora || "",
-          ItOsTagBag: item.itOsTagBag || "",
-          ItOsOrigem: item.itOsOrigem || "",
-          ItOsTagOrigem: item.itOsTagOrigem || "",
-          ItOsDestino: item.itOsDestino || "",
-          ItOsTagDestino: item.itOsTagDestino || "",
-          ItOSStatus: item.itOSStatus || "",
-          Lote: item.lote || "",
-          ItOsObs: item.itOsObs || "",
-          ItOsPeso: parseFloat(item.itOsPeso) || 0,
-          ItOsPesoSoltar: parseFloat(item.itOsPesoSoltar) || 0
-        };
-      });
-      
-      console.log('📦 Itens formatados (do todosItens):');
-      itensFormatados.forEach((item, index) => {
-        console.log(`  Item ${item.ItOSItem}: Data=${item.ItOSData}, Hora=${item.ItOSHora}`);
-      });
-    } else {
-      const itensOS = dadosLocais.value.filter(item => 
-        item.osid === props.itemSelecionado.osid
-      );
-      
-      itensFormatados = itensOS.map(item => {
-        const numeroItem = parseInt(item.itOSItem) || 0;
-        
-        return {
-          OSID: item.osid || "",
-          ItOSItem: numeroItem.toString(), // Remove zeros à esquerda
-          OpTck: item.opTck || props.itemSelecionado.opTck || "",
-          EmpiCod: item.empiCod || "",
-          MotCod: item.motCod || "",
-          ItOSData: item.itOSData || "",
-          ItOSHora: item.itOSHora || "",
-          ItOsTagBag: item.itOsTagBag || "",
-          ItOsOrigem: item.itOsOrigem || "",
-          ItOsTagOrigem: item.itOsTagOrigem || "",
-          ItOsDestino: item.itOsDestino || "",
-          ItOsTagDestino: item.itOsTagDestino || "",
-          ItOSStatus: item.itOSStatus || "",
-          Lote: item.lote || "",
-          ItOsObs: item.itOsObs || "",
-          ItOsPeso: parseFloat(item.itOsPeso) || 0,
-          ItOsPesoSoltar: parseFloat(item.itOsPesoSoltar) || 0
-        };
-      });
-    }
+    console.log('📦 Itens formatados (TODAS as alterações acumuladas):');
+    console.log('📊 Total de alterações pendentes:', alteracoesPendentes.value.length);
+    console.log('📦 Total de itens a enviar:', itensFormatados.length);
+    itensFormatados.forEach((item, index) => {
+      console.log(`  Item ${item.ItOSItem}: Data=${item.ItOSData}, Hora=${item.ItOSHora}`);
+    });
     
     const alteracaoDataHora = alteracoesPendentes.value.find(alt => alt.tipo === 'alterarDataHora');
     
@@ -844,15 +813,21 @@ const concluirAlteracoes = async () => {
       wms_os: {
         OSID: props.itemSelecionado.osid || "",
         MotCod: "",
-        OSOpTck: props.itemSelecionado.osid || "",
+        OSOpTck: props.itemSelecionado.opTck || "",
         OSPrioridade: "0",
         OSBlocoSuger: "",
         OSData: osData,
         OSHora: osHora,
-        OSStatus: "AB"
+        OSStatus: "AT"
       },
       wms_itemos: itensFormatados
     };
+    
+    console.log('🚀 PAYLOAD FINAL ENVIADO PARA API:');
+    console.log('📋 wms_os:', dadosAPI.wms_os);
+    console.log('📦 wms_itemos (total:', itensFormatados.length, 'itens):');
+    console.table(dadosAPI.wms_itemos);
+    console.log('📄 JSON completo:', JSON.stringify(dadosAPI, null, 2));
     
     const response = await wmSOSStore.UPDWMSOS(dadosAPI);
     

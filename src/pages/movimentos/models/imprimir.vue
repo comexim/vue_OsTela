@@ -628,9 +628,9 @@ const generatePrintHTML = () => {
         /* Larguras específicas das colunas para alinhamento */
         .print-table th:nth-child(1), .print-table td:nth-child(1) { width: 5%; }  /* IT */
         .print-table th:nth-child(2), .print-table td:nth-child(2) { width: 9%; }  /* EMP */
-        .print-table th:nth-child(3), .print-table td:nth-child(3) { width: 18%; } /* LOTE */
+        .print-table th:nth-child(3), .print-table td:nth-child(3) { width: 19%; } /* LOTE */
         .print-table th:nth-child(4), .print-table td:nth-child(4) { width: 8%; }  /* TAG */
-        .print-table th:nth-child(5), .print-table td:nth-child(5) { width: 10%; } /* ORIGEM */
+        .print-table th:nth-child(5), .print-table td:nth-child(5) { width: 11%; } /* ORIGEM */
         .print-table th:nth-child(6), .print-table td:nth-child(6) { width: 11%; } /* DESTINO */
         .print-table th:nth-child(7), .print-table td:nth-child(7) { width: 11%; }  /* DEP. EM */
         .print-table th:nth-child(8), .print-table td:nth-child(8) { width: 18%; } /* OBSERVAÇÃO */
@@ -1010,7 +1010,7 @@ const generatePrintHTML = () => {
         /* Larguras específicas das colunas para alinhamento */
         .print-table th:nth-child(1), .print-table td:nth-child(1) { width: 4%; }  /* IT */
         .print-table th:nth-child(2), .print-table td:nth-child(2) { width: 6%; }  /* EMP */
-        .print-table th:nth-child(3), .print-table td:nth-child(3) { width: 10%; }  /* LOTE */
+        .print-table th:nth-child(3), .print-table td:nth-child(3) { width: 11%; }  /* LOTE */
         .print-table th:nth-child(4), .print-table td:nth-child(4) { width: 8%; }  /* TAG */
         .print-table th:nth-child(5), .print-table td:nth-child(5) { width: 12%; } /* ORIGEM */
         .print-table th:nth-child(6), .print-table td:nth-child(6) { width: 12%; } /* DESTINO */

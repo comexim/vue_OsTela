@@ -54,12 +54,19 @@ const gerarHeaders = (dadosArray) => {
   if (!dadosArray || dadosArray.length === 0) return [];
   
   const primeiroItem = dadosArray[0];
-  return Object.keys(primeiroItem).map(key => ({
-    title: formatarTituloColuna(key),
-    key: key,
-    align: 'start',
-    sortable: true
-  }));
+  const keys = Object.keys(primeiroItem);
+  const headersGerados = [];
+  
+  keys.forEach(key => {
+    headersGerados.push({
+      title: formatarTituloColuna(key),
+      key: key,
+      align: 'start',
+      sortable: true
+    });
+  });
+  
+  return headersGerados;
 };
 
 // Função para formatar o título das colunas
@@ -69,7 +76,9 @@ const formatarTituloColuna = (key) => {
     'codigo': 'Silo',
     'capacidade': 'Capacidade',
     'saldowms': 'Saldo WMS',
-    'sup': 'Saldo SUP',
+    'wmssacas': 'WMS Sacas',
+    'saldosup': 'Saldo SUP',
+    'supsacas': 'SUP Sacas',
     'difer': 'Diferença',
     'lote': 'Lote'
   };
@@ -86,18 +95,23 @@ const carregarDados = async () => {
     const response = await apiStore.getSiloWMSSUP();
     console.log('Dados recebidos da API:', response);
     
+    let dadosRecebidos = [];
     if (Array.isArray(response)) {
-      dados.value = response;
-      headers.value = gerarHeaders(response);
+      dadosRecebidos = response;
     } else if (response && Array.isArray(response.data)) {
-      dados.value = response.data;
-      headers.value = gerarHeaders(response.data);
+      dadosRecebidos = response.data;
     } else {
       console.warn('Formato de dados inesperado:', response);
       dados.value = [];
       headers.value = [];
+      loading.value = false;
+      return;
     }
     
+    // Dados já vêm completos da API, apenas atribui
+    dados.value = dadosRecebidos;
+    
+    headers.value = gerarHeaders(dadosRecebidos);
     mostrarTabela.value = true;
     
     if (dados.value.length === 0) {
