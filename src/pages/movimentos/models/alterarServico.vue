@@ -1003,8 +1003,13 @@ const preencherFormularioComItemSelecionado = (item) => {
   console.log('🔍 Preenchendo formulário com item selecionado:', item);
   console.log('🔍 Observação do item (itOsObs):', item.itOsObs);
   
-  // Calcula o peso original: se houver observação E não começar com "* CORT FOR *", soma itOsPeso + itOsPesoSoltar
-  const pesoOriginalCalculado = (item.itOsObs && !item.itOsObs.startsWith('* CORT FOR *'))
+  // Calcula o peso original: se houver observação E não começar com "* CORT FOR *" nem com "***GERADO C",
+  // então soma itOsPeso + itOsPesoSoltar. Caso contrário, usa apenas itOsPeso.
+  const pesoOriginalCalculado = (
+    item.itOsObs &&
+    !item.itOsObs.startsWith('* CORT FOR *') &&
+    !item.itOsObs.startsWith('***GERADO C')
+  )
     ? (parseFloat(item.itOsPeso) || 0) + (parseFloat(item.itOsPesoSoltar) || 0)
     : (parseFloat(item.itOsPeso) || 0);
   

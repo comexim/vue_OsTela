@@ -12,6 +12,7 @@
           prepend-icon="mdi-file-document"
           variant="outlined"
           density="compact"
+          autocomplete="off"
           class="mb-3"
         ></v-text-field>
 
@@ -22,6 +23,7 @@
           prepend-icon="mdi-package"
           variant="outlined"
           density="compact"
+          autocomplete="off"
           class="mb-3"
         ></v-text-field>
 
@@ -32,6 +34,7 @@
           prepend-icon="mdi-tag"
           variant="outlined"
           density="compact"
+          autocomplete="off"
           class="mb-3"
         ></v-text-field>
 
@@ -42,6 +45,7 @@
           prepend-icon="mdi-map-marker"
           variant="outlined"
           density="compact"
+          autocomplete="off"
           class="mb-3"
         ></v-text-field>
 
@@ -59,6 +63,7 @@
           class="mb-3"
           clearable
           :loading="loadingSilos"
+          autocomplete="off"
           no-data-text="Nenhum silo encontrado"
         >
           <template v-slot:item="{ props, item }">

@@ -1,48 +1,6 @@
 <template>
   <!-- Seção da Tabela -->
   <div v-if="mostrarTabela" class="table-section">
-    <!-- Header da tabela com controles -->
-    <div class="table-header elevation-1 pa-4 mb-4 rounded-lg">
-      <v-row align="center" justify="space-between">
-        <v-col cols="12" md="6" class="d-flex align-center ga-3">
-          <v-btn 
-            color="primary" 
-            @click="$emit('atualizar')"
-            :loading="loading"
-            prepend-icon="mdi-refresh"
-            variant="elevated"
-            size="default"
-          >
-            Atualizar
-          </v-btn>
-          
-          <v-chip 
-            v-if="dados.length > 0"
-            color="success"
-            variant="tonal"
-            prepend-icon="mdi-table"
-          >
-            {{ dados.length }} registros
-          </v-chip>
-        </v-col>
-        
-        <v-col cols="12" md="6" class="d-flex justify-end">
-          <v-text-field
-            v-model="buscaLocal"
-            label="Buscar na tabela..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            hide-details
-            style="max-width: 350px;"
-            class="search-field"
-            @input="$emit('update:busca', buscaLocal)"
-          />
-        </v-col>
-      </v-row>
-    </div>
-
     <!-- Tabela principal -->
     <v-card class="table-card" elevation="3">
       <v-data-table
@@ -50,25 +8,29 @@
         :items="filteredItems"
         :loading="loading"
         class="data-table-custom"
+        hide-default-footer
         :items-per-page="-1"
-        :items-per-page-options="[
-          { value: 10, title: '10' },
-          { value: 15, title: '15' },
-          { value: 25, title: '25' },
-          { value: 50, title: '50' },
-          { value: 100, title: '100' },
-          { value: -1, title: 'Todos' }
-        ]"
         :search="buscaLocal"
-        show-current-page
         fixed-header
-        height="600px"
+        height="350px"
       >
         <template v-slot:top>
           <div class="table-toolbar pa-3">
-            <div class="d-flex justify-space-between align-center">
+            <div class="d-flex justify-space-between align-center ga-3">
               <h3 class="table-title">Saldo Silo WMS x SUP - Dados</h3>
-              <div class="d-flex ga-2">
+              <div class="d-flex align-center ga-2">
+                <v-text-field
+                  v-model="buscaLocal"
+                  label="Buscar na tabela..."
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  clearable
+                  hide-details
+                  style="width: 300px;"
+                  class="search-field"
+                  @input="$emit('update:busca', buscaLocal)"
+                />
                 <v-btn
                   color="primary"
                   variant="tonal"
@@ -157,6 +119,10 @@ const props = defineProps({
   busca: {
     type: String,
     default: ''
+  },
+  alturaTabela: {
+    type: Number,
+    default: 600
   }
 });
 

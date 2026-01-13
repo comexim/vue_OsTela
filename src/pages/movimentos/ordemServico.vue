@@ -7,78 +7,87 @@
         
         <v-card-text>
           <!-- Seção de Filtros -->
-          <div class="w-100 pa-4 border rounded-xl elevation-2 mb-4">
-            <div class="text-h6 text-left mb-3">Filtros</div>
+          <div class="w-100 pa-3 border rounded-xl elevation-2 mb-3">
             <v-form @submit.prevent="onFilter">
-              <v-row align="start" justify="start">
-                  <!-- Ordem de Serviço -->
-                  <v-col cols="12" md="4">
-                    <v-text-field 
-                      label="Ordem de Serviço" 
-                      variant="outlined"
-                      v-model="ordemServico"
-                      density="compact"
-                    ></v-text-field>
-                  </v-col>
-                <v-col cols="12" md="4">
+              <v-row align="center" justify="start" dense>
+                <v-col cols="12" md="2">
+                  <v-text-field 
+                    label="OS" 
+                    variant="outlined"
+                    v-model="ordemServico"
+                    density="compact"
+                    autocomplete="off"
+                    hide-details
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="12" md="2">
                   <v-text-field 
                     label="Data Inicial" 
                     variant="outlined" 
                     v-model="dataInicial"
                     type="date"
                     density="compact"
+                    autocomplete="off"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="2">
                   <v-text-field 
                     label="Data Final" 
                     variant="outlined" 
                     v-model="dataFinal"
                     type="date"
                     density="compact"
+                    autocomplete="off"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                  <!-- Tag -->
-                  <v-col cols="12" md="4">
-                    <v-text-field 
-                      label="Tag" 
-                      variant="outlined"
-                      v-model="tag"
-                      density="compact"
-                    ></v-text-field>
-                  </v-col>
-                  <!-- Em Aberto (Select) -->
-                  <v-col cols="12" md="4">
-                    <v-select
-                      label="Em Aberto"
-                      variant="outlined"
-                      v-model="emAberto"
-                      :items="emAbertoOptions"
-                      density="compact"
-                    ></v-select>
-                  </v-col>
-              </v-row>
-              <v-row class="justify-center mt-2">
-                <v-btn 
-                  variant="tonal" 
-                  color="blue-accent-4" 
-                  prepend-icon="mdi-magnify" 
-                  @click="onFilter"
-                  :loading="loading"
-                >
-                  Filtrar
-                </v-btn>
+                <v-col cols="12" md="2">
+                  <v-text-field 
+                    label="Tag" 
+                    variant="outlined"
+                    v-model="tag"
+                    density="compact"
+                    autocomplete="off"
+                    hide-details
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="12" md="2">
+                  <v-select
+                    label="Status"
+                    variant="outlined"
+                    v-model="emAberto"
+                    :items="emAbertoOptions"
+                    density="compact"
+                    autocomplete="off"
+                    hide-details
+                  ></v-select>
+                </v-col>
+                <v-col cols="12" md="2" class="d-flex justify-center">
+                  <v-btn 
+                    variant="tonal" 
+                    color="blue-accent-4" 
+                    prepend-icon="mdi-magnify" 
+                    @click="onFilter"
+                    :loading="loading"
+                    block
+                  >
+                    Filtrar
+                  </v-btn>
+                </v-col>
               </v-row>
             </v-form>
           </div>
 
           <!-- Componente da Tabela -->
-          <OrdemServTable
+          <div ref="tabelaRef">
+            <OrdemServTable
             :dados="dados"
             :dados-completos="dadosCompletos"
             :headers="headers"
             :loading="loading"
             :mostrar-tabela="mostrarTabela"
+            :altura-tabela="450"
             v-model:busca="busca"
             @atualizar="onFilter"
             @abrir-detalhes="abrirDetalhes"
@@ -86,6 +95,7 @@
             @clonar-despejo="abrirModalClonar"
             @nova-ordem="abrirModalNovaOrdem"
           />
+          </div>
 
           <!-- Modal de Detalhes -->
           <DetalhesOrdemServico
@@ -146,6 +156,7 @@ const headers = ref([]);
 const loading = ref(false);
 const busca = ref('');
 const mostrarTabela = ref(false);
+const tabelaRef = ref(null);
 
 // Modal de detalhes
 const modalDetalhesVisible = ref(false);
@@ -451,7 +462,7 @@ onMounted(() => {
 <style scoped>
 h1 {
   color: #2e7d32;
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   margin-bottom: 0.5rem;
   text-align: center;
 }
@@ -464,6 +475,8 @@ h1 {
 
 .container {
   min-width: 1300px;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
 }
 
 /* Animações */

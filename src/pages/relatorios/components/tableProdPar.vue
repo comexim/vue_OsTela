@@ -2,99 +2,55 @@
   <!-- Seção Principal da Tabela de Produção/Parada -->
   <div v-if="mostrarTabela" class="table-section">
     
-    <!-- Header com controles e estatísticas -->
-    <div class="table-header elevation-1 pa-4 mb-4 rounded-lg">
-      <v-row align="center" justify="space-between">
-        
-        <!-- Controles à esquerda -->
-        <v-col cols="12" md="6" class="d-flex align-center ga-3">
-          <!-- Botão de atualização -->
-          <v-btn 
-            color="primary" 
-            @click="$emit('atualizar')"
-            :loading="loading"
-            prepend-icon="mdi-refresh"    
-            variant="elevated"
-            size="default"
-          >
-            Atualizar
-          </v-btn>
-          
-          <!-- Contador de registros totais -->
-          <v-chip 
-            v-if="dados.length > 0"
-            color="success"
-            variant="tonal"
-            prepend-icon="mdi-table"
-          >
-            {{ dados.length }} registros
-          </v-chip>
-          
-          <!-- Contador de registros filtrados -->
-          <v-chip 
-            v-if="filteredItems.length !== dados.length && buscaLocal"
-            color="info"
-            variant="tonal"
-            prepend-icon="mdi-filter"
-            class="ml-2"
-          >
-            {{ filteredItems.length }} filtrados
-          </v-chip>
-
-          <!-- Indicador de paginação -->
-          <v-chip 
-            v-if="dados.length > 10"
-            color="primary"
-            variant="outlined"
-            prepend-icon="mdi-view-list"
-            class="ml-2"
-          >
-            {{ itemsPerPage === -1 ? 'Todos' : itemsPerPage }} por página
-          </v-chip>
-        </v-col>
-        
-        <!-- Campo de busca à direita -->
-        <v-col cols="12" md="6" class="d-flex justify-end">
-          <v-text-field
-            v-model="buscaLocal"
-            label="Buscar na tabela..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            hide-details
-            style="max-width: 350px;"
-            class="search-field"
-            @input="$emit('update:busca', buscaLocal)"
-          />
-        </v-col>
-      </v-row>
-    </div>
-
     <!-- Tabela Principal de Dados -->
     <v-card class="table-card" elevation="3">
       <v-data-table
-        :headers="headers"
-        :items="filteredItems"
+        :headers="headersAtivos"
+        :items="dadosProcessados"
         :loading="loading"
         class="data-table-custom"
-        :items-per-page="itemsPerPage"
-        :items-per-page-options="itemsPerPageOptions"
+        :items-per-page="-1"
         :search="buscaLocal"
-        show-current-page
         fixed-header
-        height="600px"
-        :page="currentPage"
-        @update:page="onPageChange"
-        @update:items-per-page="onItemsPerPageChange"
+        height="350px"
+        hide-default-footer
+        :show-expand="tipoVisualizacao === 'sintetico'"
+        v-model:expanded="expandedRows"
+        item-value="id"
       >
         
         <!-- Toolbar superior da tabela -->
         <template v-slot:top>
           <div class="table-toolbar pa-3">
             <div class="d-flex justify-space-between align-center">
-              <h3 class="table-title">Produção e parada - Dados</h3>
-              <div class="d-flex ga-2">
+              <div class="d-flex align-center ga-3">
+                <h3 class="table-title">Produção e parada</h3>
+                <v-select
+                  v-model="tipoVisualizacao"
+                  :items="[
+                    { title: 'Analítico', value: 'analitico' },
+                    { title: 'Sintético', value: 'sintetico' }
+                  ]"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  style="width: 150px;"
+                  class="tipo-select"
+                />
+              </div>
+              <div class="d-flex ga-2 align-center">
+                <v-text-field
+                  v-model="buscaLocal"
+                  label="Buscar na tabela..."
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  clearable
+                  hide-details
+                  style="width: 300px;"
+                  class="search-field"
+                  @input="$emit('update:busca', buscaLocal)"
+                />
                 <!-- Botão para configurar colunas -->
                 <v-btn
                   color="primary"
@@ -143,7 +99,7 @@
         <!-- Template customizado para as células da tabela -->
         <template v-slot:item="{ item }">
           <tr class="table-row-hover">
-            <td v-for="header in headers" :key="header.key" class="table-cell text-left">
+            <td v-for="header in headersAtivos" :key="header.key" class="table-cell text-left">
               <span 
                 :class="getCellClass(header.key)"
               >
@@ -317,8 +273,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { setColumn } from '@/stores/Consultas/setCollumn';
+import { maquinario } from '@/stores/Consultas/getMaquinario';
 
 // ===== PROPS E EMITS =====
 const props = defineProps({
@@ -345,6 +302,10 @@ const props = defineProps({
   labelMapCompleto: {
     type: Array,
     default: () => []
+  },
+  alturaTabela: {
+    type: Number,
+    default: 600
   }
 });
 
@@ -355,6 +316,7 @@ const emit = defineEmits(['atualizar', 'update:busca']);
 const buscaLocal = ref(props.busca);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
+const tipoVisualizacao = ref('analitico'); // 'analitico' ou 'sintetico'
 
 // Estados do modal de configuração
 const modalColunas = ref(false);
@@ -364,6 +326,10 @@ const itemArrastando = ref(null);
 
 // Store da API
 const setColumnStore = setColumn();
+const maquinarioStore = maquinario();
+
+// Dados de maquinários
+const maquinarios = ref([]);
 
 // ===== CONFIGURAÇÕES CONSTANTES =====
 // Opções de paginação
@@ -419,15 +385,163 @@ watch(() => props.labelMapCompleto, (newLabelMap) => {
 }, { immediate: true });
 
 // ===== COMPUTED PROPERTIES =====
-// Filtro de dados baseado na busca
-const filteredItems = computed(() => {
-  if (!buscaLocal.value) return props.dados;
+// Headers sintéticos
+const headersSinteticos = computed(() => [
+  { title: 'OP', key: 'parOP', align: 'start', sortable: true },
+  { title: 'Maquinário', key: 'maquinarios', align: 'start', sortable: true },
+  { title: 'Operadores', key: 'operadores', align: 'start', sortable: true },
+  { title: 'Tempo Produção', key: 'tempoProducao', align: 'start', sortable: true },
+  { title: 'Tempo Parada', key: 'tempoParada', align: 'start', sortable: true },
+  { title: 'Tempo Total', key: 'totalHoras', align: 'start', sortable: true },
+  { title: 'Registros', key: 'quantidadeRegistros', align: 'start', sortable: true }
+]);
+
+// Headers para detalhes do modo sintético (quando expandir)
+const headersDetalheSintetico = computed(() => [
+  { title: 'Tipo', key: 'parTipo', align: 'start', sortable: false },
+  { title: 'Total de Horas', key: 'totalHoras', align: 'start', sortable: false },
+  { title: 'Registros', key: 'quantidadeRegistros', align: 'start', sortable: false }
+]);
+
+// Headers ativos baseados no tipo de visualização
+const headersAtivos = computed(() => {
+  return tipoVisualizacao.value === 'sintetico' ? headersSinteticos.value : props.headers;
+});
+
+// Dados sintéticos agrupados
+const dadosSinteticos = computed(() => {
+  if (tipoVisualizacao.value !== 'sintetico') return [];
+  
+  // Agrupa por OP
+  const agrupamentoPorOP = {};
+  
+  props.dados.forEach(item => {
+    const op = obterValorDoItem(item, 'parOP') || 'SEM OP';
+    const tipo = obterValorDoItem(item, 'parTipo') || 'N/A';
+    const maqCod = obterValorDoItem(item, 'maqCod') || '';
+    const userCod = obterValorDoItem(item, 'userCod') || '';
+    
+    // Cria entrada da OP se não existir
+    if (!agrupamentoPorOP[op]) {
+      agrupamentoPorOP[op] = {
+        parOP: op,
+        totalHoras: 0,
+        tempoProducao: 0,
+        tempoParada: 0,
+        quantidadeRegistros: 0,
+        maquinarios: new Set(),
+        operadores: new Set(),
+        _detalhes: {} // Agrupamento por tipo dentro da OP
+      };
+    }
+    
+    // Adiciona maquinário e operador aos conjuntos
+    if (maqCod) agrupamentoPorOP[op].maquinarios.add(maqCod);
+    if (userCod) agrupamentoPorOP[op].operadores.add(userCod);
+    
+    // Cria entrada do tipo dentro da OP se não existir
+    if (!agrupamentoPorOP[op]._detalhes[tipo]) {
+      agrupamentoPorOP[op]._detalhes[tipo] = {
+        parTipo: tipo,
+        totalHoras: 0,
+        quantidadeRegistros: 0
+      };
+    }
+    
+    // Calcula duração em horas
+    const dataIni = obterValorDoItem(item, 'parDataIni');
+    const horaIni = obterValorDoItem(item, 'parHoraIni');
+    const dataFim = obterValorDoItem(item, 'parDataFim');
+    const horaFim = obterValorDoItem(item, 'parHoraFim');
+    
+    const horas = calcularDiferencaHoras(dataIni, horaIni, dataFim, horaFim);
+    
+    // Soma no total da OP
+    agrupamentoPorOP[op].totalHoras += horas;
+    agrupamentoPorOP[op].quantidadeRegistros += 1;
+    
+    // Separa por tipo de tempo
+    if (tipo === 'PRO') {
+      agrupamentoPorOP[op].tempoProducao += horas;
+    } else if (tipo === 'PAR' || tipo === 'PRF') {
+      agrupamentoPorOP[op].tempoParada += horas;
+    }
+    
+    // Soma no total do tipo
+    agrupamentoPorOP[op]._detalhes[tipo].totalHoras += horas;
+    agrupamentoPorOP[op]._detalhes[tipo].quantidadeRegistros += 1;
+  });
+  
+  // Converte objeto em array e formata horas
+  return Object.values(agrupamentoPorOP).map((op, index) => ({
+    id: `op-${index}-${op.parOP}`, // ID único para expansão
+    parOP: op.parOP,
+    maquinarios: Array.from(op.maquinarios).map(cod => formatMaquinarioValue(cod)).join(', '),
+    operadores: Array.from(op.operadores).join(', '),
+    tempoProducao: formatarHoras(op.tempoProducao),
+    tempoParada: formatarHoras(op.tempoParada),
+    totalHoras: formatarHoras(op.totalHoras),
+    quantidadeRegistros: op.quantidadeRegistros,
+    _detalhes: Object.values(op._detalhes).map(tipo => ({
+      parTipo: tipo.parTipo,
+      totalHoras: formatarHoras(tipo.totalHoras),
+      quantidadeRegistros: tipo.quantidadeRegistros
+    }))
+  }));
+});
+
+// Dados processados baseados no tipo de visualização
+const dadosProcessados = computed(() => {
+  const dados = tipoVisualizacao.value === 'sintetico' ? dadosSinteticos.value : filteredItems.value;
+  
+  // Aplica busca se houver
+  if (!buscaLocal.value) return dados;
   
   const termoBusca = buscaLocal.value.toLowerCase();
-  return props.dados.filter(item => {
-    return Object.values(item).some(valor => 
-      String(valor).toLowerCase().includes(termoBusca)
-    );
+  return dados.filter(item => {
+    // Para dados sintéticos, busca apenas nos campos visíveis (exclui _detalhes e id)
+    const camposPesquisaveis = Object.entries(item).filter(([key]) => !key.startsWith('_') && key !== 'id');
+    
+    return camposPesquisaveis.some(([key, valor]) => {
+      // Verifica se o valor não é um objeto ou array
+      if (typeof valor !== 'object' && valor !== null) {
+        return String(valor).toLowerCase().includes(termoBusca);
+      }
+      return false;
+    });
+  });
+});
+
+// Filtro de dados baseado na busca com ordenação cronológica
+const filteredItems = computed(() => {
+  // Primeiro aplica o filtro de busca
+  let dadosFiltrados = props.dados;
+  
+  if (buscaLocal.value) {
+    const termoBusca = buscaLocal.value.toLowerCase();
+    dadosFiltrados = props.dados.filter(item => {
+      return Object.values(item).some(valor => 
+        String(valor).toLowerCase().includes(termoBusca)
+      );
+    });
+  }
+  
+  // Depois ordena por data e hora cronologicamente
+  return [...dadosFiltrados].sort((a, b) => {
+    // Obtém data inicial de cada item (tentando diferentes variações de chave)
+    const dataA = obterValorDoItem(a, 'parDataIni') || obterValorDoItem(a, 'ParDataIni') || '';
+    const dataB = obterValorDoItem(b, 'parDataIni') || obterValorDoItem(b, 'ParDataIni') || '';
+    
+    // Compara as datas (formato YYYYMMDD permite comparação direta como string)
+    if (dataA !== dataB) {
+      return dataA.localeCompare(dataB);
+    }
+    
+    // Se as datas são iguais, ordena por hora
+    const horaA = obterValorDoItem(a, 'parHoraIni') || obterValorDoItem(a, 'ParHoraIni') || '00:00';
+    const horaB = obterValorDoItem(b, 'parHoraIni') || obterValorDoItem(b, 'ParHoraIni') || '00:00';
+    
+    return horaA.localeCompare(horaB);
   });
 });
 
@@ -436,7 +550,84 @@ const colunasVisiveis = computed(() => {
   return configColunas.value.filter(coluna => coluna.visivel);
 });
 
+// Mapa de códigos de maquinário para nomes
+const maquinarioMap = computed(() => {
+  const map = {};
+  maquinarios.value.forEach(item => {
+    map[item.id] = item.nome;
+  });
+  return map;
+});
+
 // ===== FUNÇÕES AUXILIARES DE FORMATAÇÃO =====
+/**
+ * Calcula diferença em horas entre duas datas/horas
+ */
+const calcularDiferencaHoras = (dataIni, horaIni, dataFim, horaFim) => {
+  try {
+    // Se não tiver todos os dados, retorna 0
+    if (!dataIni || !horaIni || !dataFim || !horaFim) return 0;
+    
+    // Converte data de YYYYMMDD para Date
+    const parseData = (dataStr, horaStr) => {
+      if (!dataStr || dataStr.length !== 8) return null;
+      
+      const ano = dataStr.substring(0, 4);
+      const mes = dataStr.substring(4, 6);
+      const dia = dataStr.substring(6, 8);
+      
+      // Converte hora HH:MM para horas e minutos
+      const [horas, minutos] = horaStr.split(':');
+      
+      return new Date(ano, parseInt(mes) - 1, dia, parseInt(horas), parseInt(minutos));
+    };
+    
+    const dateIni = parseData(dataIni, horaIni);
+    const dateFim = parseData(dataFim, horaFim);
+    
+    if (!dateIni || !dateFim) return 0;
+    
+    // Calcula diferença em milissegundos
+    const diferencaMs = dateFim - dateIni;
+    
+    // Converte para horas (com decimais)
+    const horas = diferencaMs / (1000 * 60 * 60);
+    
+    return horas > 0 ? horas : 0;
+  } catch (error) {
+    console.error('Erro ao calcular diferença de horas:', error);
+    return 0;
+  }
+};
+
+/**
+ * Formata horas decimais para HH:MM
+ */
+const formatarHoras = (horasDecimais) => {
+  if (!horasDecimais || horasDecimais === 0) return '0h 00min';
+  
+  const horas = Math.floor(horasDecimais);
+  const minutos = Math.round((horasDecimais - horas) * 60);
+  
+  return `${horas}h ${minutos.toString().padStart(2, '0')}min`;
+};
+
+/**
+ * Retorna cor baseada no tipo (PRO/PAR/PRF)
+ */
+const getTipoColor = (tipo) => {
+  switch(tipo) {
+    case 'PRO':
+      return 'success'; // Verde para produção
+    case 'PAR':
+      return 'warning'; // Amarelo para parada
+    case 'PRF':
+      return 'error'; // Vermelho para parada final
+    default:
+      return 'grey';
+  }
+};
+
 /**
  * Normaliza chaves (converte primeira letra para minúscula)
  */
@@ -478,14 +669,37 @@ const isTimeField = (fieldKey) => {
 };
 
 /**
+ * Verifica se o campo é código de maquinário
+ */
+const isMaquinarioField = (fieldKey) => {
+  const maqFields = ['maqCod', 'maquinario', 'maquina'];
+  return maqFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
+};
+
+/**
  * Retorna classe CSS baseada no tipo de campo
  */
 const getCellClass = (fieldKey) => {
+  if (fieldKey === 'totalHoras') return 'numeric-value';
+  if (fieldKey === 'tempoProducao') return 'numeric-value';
+  if (fieldKey === 'tempoParada') return 'numeric-value';
+  if (fieldKey === 'quantidadeRegistros') return 'numeric-value';
+  if (fieldKey === 'maquinarios') return 'text-value';
+  if (fieldKey === 'operadores') return 'text-value';
   if (isIdField(fieldKey)) return 'id-value';
   if (isNumericField(fieldKey)) return 'numeric-value';
   if (isDateField(fieldKey)) return 'date-value';
   if (isTimeField(fieldKey)) return 'time-value';
+  if (isMaquinarioField(fieldKey)) return 'maquinario-value';
   return 'text-value';
+};
+
+/**
+ * Formata código do maquinário para nome
+ */
+const formatMaquinarioValue = (value) => {
+  if (!value) return '-';
+  return maquinarioMap.value[value] || value;
 };
 
 /**
@@ -558,7 +772,14 @@ const formatDateValue = (value) => {
  * Formata valor da célula baseado no tipo do campo
  */
 const formatCellValue = (value, fieldKey) => {
-  if (isIdField(fieldKey)) {
+  if (fieldKey === 'totalHoras' || fieldKey === 'tempoProducao' || fieldKey === 'tempoParada') {
+    // Já vem formatado do computed
+    return value || '0h 00min';
+  } else if (fieldKey === 'quantidadeRegistros') {
+    return value || '0';
+  } else if (fieldKey === 'maquinarios' || fieldKey === 'operadores') {
+    return value || '-';
+  } else if (isIdField(fieldKey)) {
     // IDs são números inteiros, sem casas decimais
     if (value === null || value === undefined || value === '') return '-';
     const num = parseInt(value);
@@ -570,6 +791,8 @@ const formatCellValue = (value, fieldKey) => {
     return formatDateValue(value);
   } else if (isTimeField(fieldKey)) {
     return value || '-'; // Horários já vêm formatados como HH:MM
+  } else if (isMaquinarioField(fieldKey)) {
+    return formatMaquinarioValue(value);
   }
   return value || '-';
 };
@@ -809,7 +1032,8 @@ const exportarDados = () => {
     props.dados.forEach(item => {
       excelContent += '<tr>';
       props.headers.forEach(header => {
-        let value = item[header.key] || '';
+        // Usa obterValorDoItem para garantir que pega o valor correto
+        let value = obterValorDoItem(item, header.key);
         let cellClass = '';
         
         // Aplica formatação baseada no tipo de campo
@@ -821,8 +1045,11 @@ const exportarDados = () => {
           value = formatDateValue(value);
         }
         
+        // Garante que value é uma string antes de aplicar replace
+        value = value !== null && value !== undefined ? String(value) : '';
+        
         // Escapa caracteres especiais para HTML
-        value = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        value = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         
         excelContent += `<td class="${cellClass}">${value}</td>`;
       });
@@ -863,6 +1090,28 @@ const exportarDados = () => {
     alert('Erro ao exportar dados para Excel');
   }
 };
+
+// ===== LIFECYCLE HOOKS =====
+/**
+ * Carrega maquinários ao montar o componente
+ */
+const carregarMaquinarios = async () => {
+  try {
+    const response = await maquinarioStore.maquinario();
+    if (Array.isArray(response)) {
+      maquinarios.value = response.map((nome, index) => ({
+        nome: nome.trim(),
+        id: String(index + 1).padStart(3, '0')
+      }));
+    }
+  } catch (error) {
+    console.error('Erro ao carregar maquinários:', error);
+  }
+};
+
+onMounted(() => {
+  carregarMaquinarios();
+});
 </script>
 
 <style scoped>
@@ -885,6 +1134,24 @@ const exportarDados = () => {
 .search-field :deep(.v-field--focused .v-field__outline) {
   border-color: #1976d2;
   border-width: 2px;
+}
+
+/* Select de tipo de visualização */
+.tipo-select :deep(.v-field__outline) {
+  border-color: white;
+}
+
+.tipo-select :deep(.v-field) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tipo-select :deep(.v-field__input),
+.tipo-select :deep(.v-select__selection) {
+  color: white !important;
+}
+
+.tipo-select :deep(.v-field__append-inner .v-icon) {
+  color: white !important;
 }
 
 /* ===== TABELA PRINCIPAL ===== */
@@ -982,6 +1249,12 @@ const exportarDados = () => {
   font-family: 'Courier New', monospace;
   font-weight: 500;
   color: #ff9800;
+  text-align: left !important;
+}
+
+.maquinario-value {
+  font-weight: 500;
+  color: #673ab7;
   text-align: left !important;
 }
 

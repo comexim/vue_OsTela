@@ -67,6 +67,11 @@ const router = createRouter({
                 path: '/relatorios/producaoData',
                 component: () => import('../pages/relatorios/producaoData.vue'),
                 meta: { requiredAuth: true, requiredPermission: 'MotAdm'}
+            },
+            {
+                path: '/consultas/dashboard',
+                component: () => import('../pages/consultas/Dashboard.vue'),
+                meta: {requiredAuth: true, requiredPermission: 'MotAdm'}
             }
     ]
 })

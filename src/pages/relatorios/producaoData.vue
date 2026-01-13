@@ -2,53 +2,80 @@
     <v-container class="container">
       <v-card>
         <v-card-title>
-          <h1>Relatório Produção por data</h1>
+          <v-row align="center" justify="space-between">
+            <v-col cols="auto">
+              <h1 class="titulo-pagina">Relatório Produção por data</h1>
+            </v-col>
+            <v-col cols="auto" class="d-flex align-center ga-3">
+              <v-chip 
+                v-if="dados.length > 0"
+                color="success"
+                variant="tonal"
+                prepend-icon="mdi-table"
+              >
+                {{ dados.length }} registros
+              </v-chip>
+              <v-btn 
+                color="primary" 
+                @click="onFilter"
+                :loading="loading"
+                prepend-icon="mdi-refresh"
+                variant="elevated"
+              >
+                Atualizar
+              </v-btn>
+            </v-col>
+          </v-row>
         </v-card-title>
         
         <v-card-text>
           <!-- Seção de Filtros -->
-          <div class="w-100 pa-4 border rounded-xl elevation-2 mb-4">
+          <div class="w-100 pa-3 border rounded-xl elevation-2 mb-4">
             <div class="text-h6 text-left mb-3">Filtros</div>
             <v-form @submit.prevent="onFilter">
-              <v-row align="start" justify="start">
-                <v-col cols="12" md="4">
+              <v-row align="start" justify="start" dense>
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Data Inicial" 
                     variant="outlined" 
                     v-model="dataInicial"
                     type="date"
                     density="compact"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Data Final" 
                     variant="outlined" 
                     v-model="dataFinal"
                     type="date"
                     density="compact"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-select
                     label="Filtrar por Pilha/SS"
                     variant="outlined"
                     v-model="pilhaSS"
                     :items="['Não', 'Sim']"
                     density="compact"
+                    hide-details
                   ></v-select>
                 </v-col>
-              </v-row>
-              <v-row class="justify-center mt-2">
-                <v-btn 
-                  variant="tonal" 
-                  color="blue-accent-4" 
-                  prepend-icon="mdi-magnify" 
-                  @click="onFilter"
-                  :loading="loading"
-                >
-                  Filtrar
-                </v-btn>
+                <v-col cols="12" md="3" class="d-flex align-end">
+                  <v-btn 
+                    variant="tonal" 
+                    color="blue-accent-4" 
+                    prepend-icon="mdi-magnify" 
+                    @click="onFilter"
+                    :loading="loading"
+                    block
+                  >
+                    Filtrar
+                  </v-btn>
+                </v-col>
               </v-row>
             </v-form>
           </div>
@@ -60,7 +87,7 @@
             :loading="loading"
             :mostrar-tabela="mostrarTabela"
             v-model:busca="busca"
-            @atualizar="onFilter"
+            :altura-tabela="450"
           />
         </v-card-text>
       </v-card>
@@ -145,6 +172,12 @@ const onFilter = async () => {
 </script>
 
 <style scoped>
+.titulo-pagina {
+  color: #2e7d32;
+  font-size: 1.5rem;
+  margin-bottom: 0;
+}
+
 h1 {
   color: #2e7d32;
   font-size: 1.8rem;

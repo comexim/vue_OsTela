@@ -1,48 +1,6 @@
 <template>
   <!-- Seção da Tabela -->
   <div v-if="mostrarTabela" class="table-section">
-    <!-- Header da tabela com controles -->
-    <div class="table-header elevation-1 pa-4 mb-4 rounded-lg">
-      <v-row align="center" justify="space-between">
-        <v-col cols="12" md="6" class="d-flex align-center ga-3">
-          <v-btn 
-            color="primary" 
-            @click="$emit('atualizar')"
-            :loading="loading"
-            prepend-icon="mdi-refresh"
-            variant="elevated"
-            size="default"
-          >
-            Atualizar
-          </v-btn>
-          
-          <v-chip 
-            v-if="dados.length > 0"
-            color="success"
-            variant="tonal"
-            prepend-icon="mdi-table"
-          >
-            {{ dados.length }} registros
-          </v-chip>
-        </v-col>
-        
-        <v-col cols="12" md="6" class="d-flex justify-end">
-          <v-text-field
-            v-model="buscaLocal"
-            label="Buscar na tabela..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            hide-details
-            style="max-width: 350px;"
-            class="search-field"
-            @input="$emit('update:busca', buscaLocal)"
-          />
-        </v-col>
-      </v-row>
-    </div>
-
     <!-- Tabela principal -->
     <v-card class="table-card" elevation="3">
       <v-data-table
@@ -50,27 +8,40 @@
         :items="filteredItems"
         :loading="loading"
         class="data-table-custom"
-        :items-per-page="10"
-        :items-per-page-options="[10, 15, 25, 50, 100]"
+        hide-default-footer
+        :items-per-page="-1"
         :search="buscaLocal"
-        show-current-page
         fixed-header
-        height="600px"
+        height="350px"
       >
         <template v-slot:top>
           <div class="table-toolbar pa-3">
-            <div class="d-flex justify-space-between align-center">
+            <div class="d-flex justify-space-between align-center ga-3">
               <h3 class="table-title">Dados do Relatório</h3>
-              <v-btn
-                size="small"
-                color="success"
-                variant="tonal"
-                prepend-icon="mdi-microsoft-excel"
-                @click="exportarDados"
-                v-if="dados.length > 0"
-              >
-                Exportar Excel
-              </v-btn>
+              <div class="d-flex align-center ga-3">
+                <v-text-field
+                  v-model="buscaLocal"
+                  label="Buscar na tabela..."
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  clearable
+                  hide-details
+                  style="width: 300px;"
+                  class="search-field"
+                  @input="$emit('update:busca', buscaLocal)"
+                />
+                <v-btn
+                  size="small"
+                  color="success"
+                  variant="tonal"
+                  prepend-icon="mdi-microsoft-excel"
+                  @click="exportarDados"
+                  v-if="dados.length > 0"
+                >
+                  Exportar Excel
+                </v-btn>
+              </div>
             </div>
           </div>
         </template>
@@ -113,81 +84,6 @@
             </td>
           </tr>
         </template>
-
-        <template v-slot:bottom="{ page, pageCount, itemsPerPage, setItemsPerPage, setPage }">
-          <div class="table-footer pa-4">
-            <v-row align="center" justify="space-between">
-              <!-- Informações dos registros -->
-              <v-col cols="12" md="4" class="d-flex align-center">
-                <span class="text-body-2 text-grey-darken-1">
-                  Mostrando {{ ((page - 1) * itemsPerPage) + 1 }}-{{ Math.min(page * itemsPerPage, filteredItems.length) }} 
-                  de {{ filteredItems.length }} registros
-                  <span v-if="buscaLocal" class="text-primary"> (filtrados de {{ dados.length }} total)</span>
-                </span>
-              </v-col>
-              
-              <!-- Controle de itens por página -->
-              <v-col cols="12" md="4" class="d-flex justify-center align-center">
-                <span class="text-body-2 mr-3">Registros por página:</span>
-                <v-select
-                  :model-value="itemsPerPage"
-                  @update:model-value="setItemsPerPage"
-                  :items="[10, 25, 50, 100, { title: 'Todos', value: filteredItems.length || 1 }]"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  style="max-width: 120px;"
-                  class="items-per-page-select"
-                />
-              </v-col>
-              
-              <!-- Controles de paginação -->
-              <v-col cols="12" md="4" class="d-flex justify-end align-center">
-                <div class="d-flex align-center ga-2">
-                  <span class="text-body-2 mr-3">
-                    Página {{ page }} de {{ pageCount || 1 }}
-                  </span>
-                  
-                  <v-btn
-                    :disabled="page <= 1"
-                    @click="setPage(1)"
-                    variant="text"
-                    icon="mdi-page-first"
-                    size="small"
-                    class="pagination-btn"
-                  />
-                  
-                  <v-btn
-                    :disabled="page <= 1"
-                    @click="setPage(page - 1)"
-                    variant="text"
-                    icon="mdi-chevron-left"
-                    size="small"
-                    class="pagination-btn"
-                  />
-                  
-                  <v-btn
-                    :disabled="page >= pageCount"
-                    @click="setPage(page + 1)"
-                    variant="text"
-                    icon="mdi-chevron-right"
-                    size="small"
-                    class="pagination-btn"
-                  />
-                  
-                  <v-btn
-                    :disabled="page >= pageCount"
-                    @click="setPage(pageCount)"
-                    variant="text"
-                    icon="mdi-page-last"
-                    size="small"
-                    class="pagination-btn"
-                  />
-                </div>
-              </v-col>
-            </v-row>
-          </div>
-        </template>
       </v-data-table>
     </v-card>
   </div>
@@ -218,11 +114,15 @@ const props = defineProps({
   busca: {
     type: String,
     default: ''
+  },
+  alturaTabela: {
+    type: Number,
+    default: 600
   }
 });
 
 // Emits
-const emit = defineEmits(['atualizar', 'update:busca']);
+const emit = defineEmits(['update:busca']);
 
 
 // Data local
@@ -253,15 +153,45 @@ onMounted(()=> {
   loadCadAux();
 })
 
-// Computed para filtrar dados baseado na busca
+// Computed para filtrar dados baseado na busca com ordenação cronológica
 const filteredItems = computed(() => {
-  if (!buscaLocal.value) return props.dados;
+  // Primeiro aplica o filtro de busca
+  let dadosFiltrados = props.dados;
   
-  const termoBusca = buscaLocal.value.toLowerCase();
-  return props.dados.filter(item => {
-    return Object.values(item).some(valor => 
-      String(valor).toLowerCase().includes(termoBusca)
-    );
+  if (buscaLocal.value) {
+    const termoBusca = buscaLocal.value.toLowerCase();
+    dadosFiltrados = props.dados.filter(item => {
+      return Object.values(item).some(valor => 
+        String(valor).toLowerCase().includes(termoBusca)
+      );
+    });
+  }
+  
+  // Depois ordena por data e hora cronologicamente
+  return [...dadosFiltrados].sort((a, b) => {
+    // Busca campos de data (procura por qualquer campo que contenha "data")
+    const campoData = Object.keys(a).find(key => key.toLowerCase().includes('data'));
+    
+    if (!campoData) return 0; // Se não há campo de data, mantém ordem original
+    
+    const dataA = a[campoData] || '';
+    const dataB = b[campoData] || '';
+    
+    // Compara as datas (formato YYYYMMDD permite comparação direta como string)
+    if (dataA !== dataB) {
+      return dataA.toString().localeCompare(dataB.toString());
+    }
+    
+    // Se as datas são iguais, ordena por hora se existir
+    const campoHora = Object.keys(a).find(key => key.toLowerCase().includes('hora'));
+    
+    if (campoHora) {
+      const horaA = a[campoHora] || '00:00';
+      const horaB = b[campoHora] || '00:00';
+      return horaA.toString().localeCompare(horaB.toString());
+    }
+    
+    return 0;
   });
 });
 
@@ -293,7 +223,12 @@ const formatNumericValue = (value) => {
   if (value === null || value === undefined || value === '') return '-';
   const num = parseFloat(value);
   if (isNaN(num)) return value;
-  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  
+  // Converte kg para gramas (multiplica por 1000)
+  const gramas = num * 1000;
+  
+  // Retorna apenas o número sem unidades
+  return Math.round(gramas).toLocaleString('pt-BR');
 };
 
 const formatEquipamento = (value) => {

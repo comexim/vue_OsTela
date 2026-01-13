@@ -13,6 +13,7 @@
             prepend-icon="mdi-file-document-outline"
             variant="outlined"
             density="compact"
+            autocomplete="off"
           ></v-text-field>
         </div>
 
@@ -24,6 +25,7 @@
             prepend-icon="mdi-cube-outline"
             variant="outlined"
             density="compact"
+            autocomplete="off"
           ></v-text-field>
         </div>
 

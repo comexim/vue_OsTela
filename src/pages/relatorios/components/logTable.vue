@@ -5,66 +5,6 @@ ALTERAÇÕES: Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético 
 <template>
   <!-- Seção da Tabela -->
   <div v-if="mostrarTabela" class="table-section">
-    <!-- Header da tabela com controles -->
-    <div class="table-header elevation-1 pa-4 mb-4 rounded-lg">
-      <v-row align="center" justify="space-between">
-        <v-col cols="12" md="6" class="d-flex align-center ga-3">
-          <v-btn 
-            color="primary" 
-            @click="$emit('atualizar')"
-            :loading="loading"
-            prepend-icon="mdi-refresh"
-            variant="elevated"
-            size="default"
-          >
-            Atualizar
-          </v-btn>
-          
-          <v-chip 
-            v-if="dadosProcessados.length > 0"
-            color="success"
-            variant="tonal"
-            prepend-icon="mdi-table"
-          >
-            {{ dadosProcessados.length }} registros
-          </v-chip>
-          
-          <v-chip 
-            v-if="filteredItems.length !== dados.length && buscaLocal"
-            color="info"
-            variant="tonal"
-            prepend-icon="mdi-filter"
-            class="ml-2"
-          >
-            {{ filteredItems.length }} filtrados
-          </v-chip>
-
-          <v-select
-            v-model="tipoRelatorio"
-            chips
-            label="Relatório"
-            :items="['Analítico','Sintético']"
-            variant="underlined"
-          ></v-select>
-        </v-col>
-        
-        <v-col cols="12" md="6" class="d-flex justify-end">
-          <v-text-field
-            v-model="buscaLocal"
-            label="Buscar na tabela..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            hide-details
-            style="max-width: 350px;"
-            class="search-field"
-            @input="$emit('update:busca', buscaLocal)"
-          />
-        </v-col>
-      </v-row>
-    </div>
-
     <!-- Tabela principal -->
     <v-card class="table-card" elevation="3">
       <v-data-table
@@ -72,28 +12,39 @@ ALTERAÇÕES: Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético 
         :items="filteredItems"
         :loading="loading"
         class="data-table-custom"
-        :items-per-page="itemsPerPage"
-        :items-per-page-options="[
-          { value: 10, title: '10' },
-          { value: 15, title: '15' },
-          { value: 25, title: '25' },
-          { value: 50, title: '50' },
-          { value: 100, title: '100' },
-          { value: -1, title: 'Todos' }
-        ]"
+        :items-per-page="-1"
         :search="buscaLocal"
-        show-current-page
         fixed-header
-        height="600px"
-        :page="currentPage"
-        @update:page="onPageChange"
-        @update:items-per-page="onItemsPerPageChange"
+        height="350px"
+        hide-default-footer
       >
         <template v-slot:top>
           <div class="table-toolbar pa-3">
             <div class="d-flex justify-space-between align-center">
               <h3 class="table-title">Log de Movimentações - Dados</h3>
-              <div class="d-flex ga-2">
+              <div class="d-flex ga-2 align-center">
+                <v-select
+                  v-model="tipoRelatorio"
+                  chips
+                  label="Relatório"
+                  :items="['Analítico','Sintético']"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  style="max-width: 150px;"
+                ></v-select>
+                <v-text-field
+                  v-model="buscaLocal"
+                  label="Buscar na tabela..."
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  clearable
+                  hide-details
+                  style="width: 200px;"
+                  class="search-field"
+                  @input="$emit('update:busca', buscaLocal)"
+                />
                 <v-btn
                   color="primary"
                   variant="tonal"
@@ -349,6 +300,10 @@ const props = defineProps({
   tipoSelecionado: {
     type: String,
     default: ''
+  },
+  alturaTabela: {
+    type: Number,
+    default: 600
   }
 });
 

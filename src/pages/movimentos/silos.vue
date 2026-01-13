@@ -95,6 +95,7 @@
                   outlined
                   dense
                   class="campo-destaque"
+                  autocomplete="off"
                 ></v-text-field>
               </v-col>
             </v-row>

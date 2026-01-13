@@ -13,6 +13,7 @@
 					variant="outlined"
 					density="compact"
 					class="mb-3"
+					autocomplete="off"
 					@input="onOpInput"
 				></v-text-field>
 				<!-- Lote -->
@@ -23,6 +24,7 @@
 					variant="outlined"
 					density="compact"
 					class="mb-3"
+					autocomplete="off"
 					@input="onLoteInput"
 				></v-text-field>
 				<!-- Botão Buscar -->

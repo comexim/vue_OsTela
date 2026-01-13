@@ -170,7 +170,7 @@ async function logout() {
   router.push('/');
 }
 
-const isDrawerOpen = ref(true);
+const isDrawerOpen = ref(false);
 const wms = ref(false);
 
 // Variáveis para o componente WMS
@@ -221,13 +221,15 @@ const Movimentos = computed(() => {
 
 const Consultas = [
   ['Mapa WMS'],
+  ['Dashboard']
 ];
 
 const Relatorios = [
   ['Log Movimentações'],
   ['Produção e Parada por maquinário'],
   ['Relatório Imas'],
-  ['Saldo Silos (WMS X SUP)']
+  ['Saldo Silos (WMS X SUP)'],
+  ['Acessos ao Sistema']
 ];
 
 const Conciliacao = [
@@ -280,6 +282,12 @@ function navigateTo(title) {
   }
   if (title === 'Produção por data') {
     router.push('/relatorios/producaoData')
+  }
+  if (title === 'Dashboard') {
+    router.push('/consultas/dashboard')
+  }
+  if (title === 'Acessos ao Sistema') {
+    router.push('/relatorios/acessos')
   }
 }
 

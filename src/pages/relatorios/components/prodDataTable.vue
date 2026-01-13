@@ -1,64 +1,36 @@
 <template>
   <!-- Seção da Tabela -->
   <div v-if="mostrarTabela" class="table-section">
-    <!-- Header da tabela com controles -->
-    <div class="table-header elevation-1 pa-4 mb-4 rounded-lg">
-      <v-row align="center" justify="space-between">
-        <v-col cols="12" md="6" class="d-flex align-center ga-3">
-          <v-btn 
-            color="primary" 
-            @click="$emit('atualizar')"
-            :loading="loading"
-            prepend-icon="mdi-refresh"
-            variant="elevated"
-            size="default"
-          >
-            Atualizar
-          </v-btn>
-          
-          <v-chip 
-            v-if="dados.length > 0"
-            color="success"
-            variant="tonal"
-            prepend-icon="mdi-table"
-          >
-            {{ dados.length }} registros
-          </v-chip>
-        </v-col>
-        
-        <v-col cols="12" md="6" class="d-flex justify-end">
-          <v-text-field
-            v-model="buscaLocal"
-            label="Buscar na tabela..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            hide-details
-            style="max-width: 350px;"
-            class="search-field"
-            @input="$emit('update:busca', buscaLocal)"
-          />
-        </v-col>
-      </v-row>
-    </div>
-
     <!-- Tabela principal customizada -->
     <v-card class="table-card" elevation="3">
       <!-- Toolbar -->
       <div class="table-toolbar pa-3">
-        <div class="d-flex justify-space-between align-center">
+        <div class="d-flex justify-space-between align-center ga-3">
           <h3 class="table-title">Dados do Relatório</h3>
-          <v-btn
-            size="small"
-            color="success"
-            variant="tonal"
-            prepend-icon="mdi-microsoft-excel"
-            @click="exportarDados"
-            v-if="dados.length > 0"
-          >
-            Exportar Excel
-          </v-btn>
+          <div class="d-flex align-center ga-2">
+            <v-text-field
+              v-model="buscaLocal"
+              label="Buscar na tabela..."
+              prepend-inner-icon="mdi-magnify"
+              variant="outlined"
+              density="compact"
+              clearable
+              hide-details
+              style="width: 300px;"
+              class="search-field"
+              @input="$emit('update:busca', buscaLocal)"
+            />
+            <v-btn
+              size="small"
+              color="success"
+              variant="tonal"
+              prepend-icon="mdi-microsoft-excel"
+              @click="exportarDados"
+              v-if="dados.length > 0"
+            >
+              Exportar Excel
+            </v-btn>
+          </div>
         </div>
       </div>
 
@@ -74,7 +46,7 @@
           v-model:expanded="expanded"
           show-expand
           density="comfortable"
-          height="600"
+          height="350px"
           fixed-header
           hide-default-footer
           :items-per-page="-1"
@@ -153,11 +125,15 @@ const props = defineProps({
   busca: {
     type: String,
     default: ''
+  },
+  alturaTabela: {
+    type: Number,
+    default: 600
   }
 });
 
 // Emits
-const emit = defineEmits(['atualizar', 'update:busca']);
+const emit = defineEmits(['update:busca']);
 
 // Data local
 const buscaLocal = ref(props.busca);

@@ -19,24 +19,40 @@
             ></v-select>
           </v-col>
 
-          <v-col cols="12" class="py-1">
-            <v-text-field
-              v-model="lote"
-              label="Lote"
-              outlined
-              dense
-              class="campo-destaque"
-            ></v-text-field>
-          </v-col>
+          <v-row class="ma-0">
+            <v-col cols="3" class="py-1 pr-1">
+              <v-select
+                v-model="lotePrefixo"
+                :items="prefixosLote"
+                label=""
+                outlined
+                dense
+                class="campo-destaque"
+              ></v-select>
+            </v-col>
+            <v-col cols="9" class="py-1 pl-1">
+              <v-text-field
+                v-model="loteNumero"
+                label="Número do Lote"
+                type="number"
+                outlined
+                dense
+                class="campo-destaque"
+                autocomplete="off"
+                :maxlength="lotePrefixo === 'BC' || lotePrefixo === 'TF' ? 10 : 6"
+              ></v-text-field>
+            </v-col>
+          </v-row>
 
           <v-col cols="12" class="py-1">
             <v-text-field
               v-model="quantidade"
-              label="Quantidade"
+              label="Quantidade (g)"
               type="number"
               outlined
               dense
               class="campo-destaque"
+              autocomplete="off"
             ></v-text-field>
           </v-col>
 
@@ -47,6 +63,7 @@
               outlined
               dense
               class="campo-destaque"
+              autocomplete="off"
             ></v-text-field>
           </v-col>
 
@@ -94,7 +111,9 @@ const apImasStore = apImas();
 
 const equipamento = ref('');
 const equipamentos = ref([]);
-const lote = ref('');
+const lotePrefixo = ref('');
+const loteNumero = ref('');
+const prefixosLote = ref(['RB', 'PP', 'CA', 'TR', 'VA', 'VE', 'VC', 'BC', 'TF']);
 const quantidade = ref(null);
 const observacao = ref('');
 const data = ref('');
@@ -119,16 +138,44 @@ const carregarEquipametos = async() => {
 
 const salvar = async () => {
   try {
+    // Validação do lote
+    if (!lotePrefixo.value) {
+      alert('Por favor, selecione um prefixo para o lote.');
+      return;
+    }
+    
+    if (!loteNumero.value) {
+      alert('Por favor, digite o número do lote.');
+      return;
+    }
+
+    const numeroDigitado = loteNumero.value.toString();
+    const tamanhoEsperado = (lotePrefixo.value === 'BC' || lotePrefixo.value === 'TF') ? 10 : 6;
+    
+    if (numeroDigitado.length !== tamanhoEsperado) {
+      alert(`O número do lote para o prefixo ${lotePrefixo.value} deve ter exatamente ${tamanhoEsperado} dígitos.`);
+      return;
+    }
+
+    const loteCompleto = `${lotePrefixo.value}-${numeroDigitado}`;
+
+    // Converte gramas para kg (divide por 1000)
+    const quantidadeEmKg = Number(quantidade.value) / 1000;
+
     const payload = {
-      apLote: lote.value,
+      apLote: loteCompleto,
       apEquipto: equipamento.value,
-      apQuant: Number(quantidade.value),
+      apQuant: quantidadeEmKg,
       apObs: observacao.value,
       apData: data.value.split('/').reverse().join(''),
       apHora: hora.value,
     };
 
-    console.log('Enviando dados para a API:', payload);
+    console.log('======= DADOS ENVIADOS =======');
+    console.log('Quantidade digitada (gramas):', quantidade.value);
+    console.log('Quantidade convertida (kg):', quantidadeEmKg);
+    console.log('Payload completo:', payload);
+    console.log('==============================');
 
     const response = await apImasStore.apImas(payload);
     console.log('Resposta da API:', response);
@@ -138,7 +185,8 @@ const salvar = async () => {
 
       // Limpa os campos do formulário
       equipamento.value = '';
-      lote.value = '';
+      lotePrefixo.value = '';
+      loteNumero.value = '';
       quantidade.value = null;
       observacao.value = '';
     } else {
@@ -210,6 +258,14 @@ h1 {
 .py-1 {
   padding-top: 2px !important;
   padding-bottom: 2px !important;
+}
+
+.pr-1 {
+  padding-right: 4px !important;
+}
+
+.pl-1 {
+  padding-left: 4px !important;
 }
 
 .py-2 {

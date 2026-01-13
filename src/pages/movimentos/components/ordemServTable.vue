@@ -55,7 +55,7 @@
         :search="buscaLocal"
         show-current-page
         fixed-header
-        height="300px"
+        height="260px"
       >
         <template v-slot:top>
           <div class="table-toolbar pa-3">
@@ -86,7 +86,11 @@
 
         <!-- Template para células com valores numéricos -->
         <template v-slot:item="{ item }">
-          <tr class="table-row-hover cursor-pointer" @click="abrirDetalhes(item)">
+          <tr 
+            class="table-row-hover cursor-pointer" 
+            :class="{ 'row-selected': selectedItemId === item.osid }"
+            @click="abrirDetalhes(item)"
+          >
             <td v-for="header in headersOrdemServico" :key="header.key" class="table-cell text-left">
               <span v-if="header.key === 'osdata'" class="date-value">
                 {{ formatDateValue(item[header.key]) }}
@@ -169,6 +173,7 @@ const emit = defineEmits(['atualizar', 'update:busca', 'abrir-detalhes', 'exclui
 // Data local
 const buscaLocal = ref(props.busca);
 const equipOptions = ref('');
+const selectedItemId = ref(null);
 
 const cadAuxStore = cadAux();
 
@@ -314,6 +319,7 @@ const formatTimeValue = (value) => {
 
 // Função para abrir o modal de detalhes
 const abrirDetalhes = (item) => {
+  selectedItemId.value = item.osid;
   emit('abrir-detalhes', item);
 };
 
@@ -388,6 +394,23 @@ const onNovaOrdem = () => {
 
 .table-row-hover:nth-child(odd) {
   background-color: #ffffff;
+}
+
+/* Linha selecionada */
+.row-selected {
+  background-color: #1565c0 !important;
+}
+
+.row-selected:hover {
+  background-color: #0d47a1 !important;
+}
+
+.row-selected .text-value,
+.row-selected .date-value,
+.row-selected .time-value,
+.row-selected .numeric-value {
+  color: white !important;
+  font-weight: 600;
 }
 
 .cursor-pointer {
