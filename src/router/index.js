@@ -31,7 +31,7 @@ const router = createRouter({
             {
                 path: '/relatorios/producaoParada',
                 component: () => import('../pages/relatorios/producaoParada.vue'),
-                meta: { requireAuth: true }
+                meta: { requireAuth: true, requiredPermission: 'MotDirImas' }
             },
             {
                 path: '/relatorios/logMovimentos',

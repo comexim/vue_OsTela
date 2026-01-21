@@ -276,10 +276,48 @@
         @erro-exclusao="onErroEliminarResiduo"
       />
 
+      <!-- Modal Seleção Tipo de Relatório -->
+      <v-dialog v-model="modalSelecaoTipoRelatorio" max-width="400px" persistent>
+        <v-card>
+          <v-card-title class="pa-3 bg-primary text-white d-flex align-center">
+            <h4>Tipo de Relatório</h4>
+            <v-spacer></v-spacer>
+            <v-btn icon variant="text" @click="modalSelecaoTipoRelatorio = false" size="small">
+              <v-icon>mdi-close</v-icon>
+            </v-btn>
+          </v-card-title>
+
+          <v-card-text class="pa-6">
+            <p class="text-h6 mb-4">Qual tipo de relatório deseja?</p>
+            <v-btn
+              color="primary"
+              variant="elevated"
+              @click="abrirRelatorioTipo('despejo')"
+              block
+              size="large"
+              class="mb-3"
+              prepend-icon="mdi-dump-truck"
+            >
+              Despejo (Moega)
+            </v-btn>
+            <v-btn
+              color="secondary"
+              variant="elevated"
+              @click="abrirRelatorioTipo('embegadora')"
+              block
+              size="large"
+              prepend-icon="mdi-package-variant"
+            >
+              Embegadora
+            </v-btn>
+          </v-card-text>
+        </v-card>
+      </v-dialog>
+
       <!-- Modal Relatório Motoristas -->
       <RelatorioOS
         v-model="modalRelatorioMotoristas"
-        :item-selecionado="dadosModal"
+        :item-selecionado="dadosModalRelatorio"
       />
 
       <v-card-actions class="pa-3">
@@ -443,7 +481,9 @@ const modalEliminarResiduo = ref(false);
 const modalAlterarDestino = ref(false);
 const modalAtenderItem = ref(false);
 const modalImprimir = ref(false);
+const modalSelecaoTipoRelatorio = ref(false);
 const modalRelatorioMotoristas = ref(false);
+const dadosModalRelatorio = ref({});
 
 // Headers para a tabela de detalhes
 const headersDetalhes = [
@@ -924,6 +964,40 @@ const abrirImprimir = () => {
 };
 
 const abrirRelatorioMotoristas = () => {
+  modalSelecaoTipoRelatorio.value = true;
+};
+
+const abrirRelatorioTipo = (tipo) => {
+  // Fecha o modal de seleção
+  modalSelecaoTipoRelatorio.value = false;
+  
+  // Filtra os itens baseado no tipo
+  const itensFiltrados = itensOrdenados.value.filter(item => {
+    const destino = item.itOsDestino || '';
+    
+    if (tipo === 'despejo') {
+      // Despejo: itOsDestino começa com 'M' (moega)
+      return destino.toUpperCase().startsWith('M');
+    } else {
+      // Embegadora: todo o resto (não começa com 'M')
+      return !destino.toUpperCase().startsWith('M');
+    }
+  });
+  
+  // Verifica se há itens para o tipo selecionado
+  if (itensFiltrados.length === 0) {
+    alert(`Não há itens do tipo ${tipo === 'despejo' ? 'Despejo (Moega)' : 'Embegadora'} nesta ordem de serviço.`);
+    return;
+  }
+  
+  // Prepara os dados para o relatório com os itens filtrados
+  dadosModalRelatorio.value = {
+    ...dadosModal.value,
+    tipoRelatorio: tipo,
+    itensFiltrados: itensFiltrados
+  };
+  
+  // Abre o modal de relatório
   modalRelatorioMotoristas.value = true;
 };
 

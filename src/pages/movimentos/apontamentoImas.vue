@@ -136,7 +136,7 @@ const carregarEquipametos = async() => {
     }
 }
 
-const salvar = async () => {
+const salvar = async (forceInsert = false) => {
   try {
     // Validação do lote
     if (!lotePrefixo.value) {
@@ -169,6 +169,7 @@ const salvar = async () => {
       apObs: observacao.value,
       apData: data.value.split('/').reverse().join(''),
       apHora: hora.value,
+      force: forceInsert,
     };
 
     console.log('======= DADOS ENVIADOS =======');
@@ -179,6 +180,16 @@ const salvar = async () => {
 
     const response = await apImasStore.apImas(payload);
     console.log('Resposta da API:', response);
+
+    // Verifica se o lote já existe e pede confirmação
+    if (response.code === 400) {
+      const confirmar = confirm(`${response.message}\n\nDeseja incluir mesmo assim?`);
+      if (confirmar) {
+        // Reenvia com force = true
+        await salvar(true);
+      }
+      return;
+    }
 
     if (response === "success" || response.data === "success" || response.code === 600 || response.type === "seccess") {
       alert('Dados enviados com sucesso!');

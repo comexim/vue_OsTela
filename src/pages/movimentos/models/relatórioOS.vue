@@ -2,7 +2,12 @@
   <v-dialog v-model="dialogVisible" max-width="1200px" persistent>
     <v-card>
       <v-card-title class="pa-1 bg-primary text-white d-flex align-center">
-        <h4>Relatório de Motoristas</h4>
+        <h4>
+          Relatório de Motoristas 
+          <span v-if="props.itemSelecionado.tipoRelatorio" class="ml-2">
+            - {{ props.itemSelecionado.tipoRelatorio === 'despejo' ? 'Despejo (Moega)' : 'Embegadora' }}
+          </span>
+        </h4>
         <v-spacer></v-spacer>
         <v-btn icon variant="text" @click="fecharModal" size="small">
           <v-icon>mdi-close</v-icon>
@@ -502,6 +507,8 @@ const carregarDados = async () => {
   loading.value = true;
   try {
     console.log('Carregando dados para OS:', props.itemSelecionado.opTck);
+    console.log('Tipo de relatório:', props.itemSelecionado.tipoRelatorio);
+    console.log('Itens filtrados:', props.itemSelecionado.itensFiltrados);
     
     // Chama a API com o opTck
     const response = await tempoMotoristaStore.getTempoMotorista({
@@ -512,17 +519,45 @@ const carregarDados = async () => {
     console.log('Resposta da API:', response);
 
     if (response && typeof response === 'object') {
+      let motoristas = [];
+      
       // Verifica se há motoristas na resposta
       if (response.motoristas && Array.isArray(response.motoristas)) {
-        dadosMotoristas.value = response.motoristas;
-        console.log('Motoristas carregados:', dadosMotoristas.value.length);
+        motoristas = response.motoristas;
       } else if (Array.isArray(response)) {
         // Fallback para o formato antigo
-        dadosMotoristas.value = response;
-        console.log('Motoristas carregados (formato antigo):', dadosMotoristas.value.length);
-      } else {
-        dadosMotoristas.value = [];
+        motoristas = response;
       }
+      
+      // Se houver itens filtrados, filtrar os bags dos motoristas
+      if (props.itemSelecionado.itensFiltrados && props.itemSelecionado.itensFiltrados.length > 0) {
+        console.log('Aplicando filtro nos bags dos motoristas...');
+        
+        // Cria um Set com as tags dos itens filtrados para busca rápida
+        const tagsPermitidas = new Set(
+          props.itemSelecionado.itensFiltrados.map(item => item.itOsTagBag)
+        );
+        
+        console.log('Tags permitidas:', Array.from(tagsPermitidas));
+        
+        // Filtra os bags de cada motorista
+        motoristas = motoristas.map(motorista => {
+          const bagsFiltered = motorista.bagsDetalhados.filter(bag => 
+            tagsPermitidas.has(bag.bagTag)
+          );
+          
+          return {
+            ...motorista,
+            bagsDetalhados: bagsFiltered,
+            quantidadeBags: bagsFiltered.length
+          };
+        }).filter(motorista => motorista.quantidadeBags > 0); // Remove motoristas sem bags
+        
+        console.log('Motoristas após filtro:', motoristas.length);
+      }
+      
+      dadosMotoristas.value = motoristas;
+      console.log('Motoristas carregados:', dadosMotoristas.value.length);
 
       // Verifica se há cortes na resposta
       if (response.cortes && Array.isArray(response.cortes)) {

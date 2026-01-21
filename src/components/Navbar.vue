@@ -1,6 +1,6 @@
 <template>
   <v-navigation-drawer v-model="isDrawerOpen" :scrim="false" width="320" app>
-		<v-list>
+		<v-list v-model:opened="openedGroups">
 			<v-list-subheader>OSTela</v-list-subheader>
 
 			<v-list-group value="Movimentos">
@@ -172,6 +172,7 @@ async function logout() {
 
 const isDrawerOpen = ref(false);
 const wms = ref(false);
+const openedGroups = ref([]); // Controla quais grupos estão abertos
 
 // Variáveis para o componente WMS
 const selectedTipo = ref(null);
@@ -228,8 +229,7 @@ const Relatorios = [
   ['Log Movimentações'],
   ['Produção e Parada por maquinário'],
   ['Relatório Imas'],
-  ['Saldo Silos (WMS X SUP)'],
-  ['Acessos ao Sistema']
+  ['Saldo Silos (WMS X SUP)']
 ];
 
 const Conciliacao = [
@@ -237,6 +237,24 @@ const Conciliacao = [
 ];
 
 const isMapaPage = computed(() => router.currentRoute.value.path === '/consultas/mapa');
+
+// Watch para garantir que apenas um menu principal fique aberto por vez
+watch(openedGroups, (newValue, oldValue) => {
+  // Lista dos menus principais
+  const menusPrincipais = ['Movimentos', 'Consultas', 'Relatórios'];
+  
+  // Filtra apenas os menus principais que estão abertos
+  const principaisAbertos = newValue.filter(item => menusPrincipais.includes(item));
+  
+  // Se mais de um menu principal estiver aberto, mantém apenas o último
+  if (principaisAbertos.length > 1) {
+    const ultimoPrincipal = principaisAbertos[principaisAbertos.length - 1];
+    // Mantém o último menu principal e seus submenus
+    openedGroups.value = newValue.filter(item => 
+      item === ultimoPrincipal || !menusPrincipais.includes(item)
+    );
+  }
+});
 
 // Watch para monitorar abertura/fechamento do WMS
 watch(wms, (newValue) => {
@@ -285,9 +303,6 @@ function navigateTo(title) {
   }
   if (title === 'Dashboard') {
     router.push('/consultas/dashboard')
-  }
-  if (title === 'Acessos ao Sistema') {
-    router.push('/relatorios/acessos')
   }
 }
 

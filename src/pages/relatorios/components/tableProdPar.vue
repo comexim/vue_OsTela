@@ -1,129 +1,262 @@
 <template>
   <!-- Seção Principal da Tabela de Produção/Parada -->
   <div v-if="mostrarTabela" class="table-section">
-    
-    <!-- Tabela Principal de Dados -->
+
+    <!-- Tabela principal customizada -->
     <v-card class="table-card" elevation="3">
-      <v-data-table
-        :headers="headersAtivos"
-        :items="dadosProcessados"
-        :loading="loading"
-        class="data-table-custom"
-        :items-per-page="-1"
-        :search="buscaLocal"
-        fixed-header
-        height="350px"
-        hide-default-footer
-        :show-expand="tipoVisualizacao === 'sintetico'"
-        v-model:expanded="expandedRows"
-        item-value="id"
-      >
-        
-        <!-- Toolbar superior da tabela -->
-        <template v-slot:top>
-          <div class="table-toolbar pa-3">
-            <div class="d-flex justify-space-between align-center">
-              <div class="d-flex align-center ga-3">
-                <h3 class="table-title">Produção e parada</h3>
-                <v-select
-                  v-model="tipoVisualizacao"
-                  :items="[
-                    { title: 'Analítico', value: 'analitico' },
-                    { title: 'Sintético', value: 'sintetico' }
-                  ]"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  style="width: 150px;"
-                  class="tipo-select"
-                />
-              </div>
-              <div class="d-flex ga-2 align-center">
-                <v-text-field
-                  v-model="buscaLocal"
-                  label="Buscar na tabela..."
-                  prepend-inner-icon="mdi-magnify"
-                  variant="outlined"
-                  density="compact"
-                  clearable
-                  hide-details
-                  style="width: 300px;"
-                  class="search-field"
-                  @input="$emit('update:busca', buscaLocal)"
-                />
-                <!-- Botão para configurar colunas -->
+      <!-- Toolbar da tabela -->
+      <div class="table-toolbar pa-3">
+        <div class="d-flex justify-space-between align-center">
+          <h3 class="table-title">
+            {{ tipoVisualizacao === 'sintetico' ? 'Relatório Sintético por OP' : 'Relatório Analítico' }}
+
+        </h3>
+            <v-select
+              v-model="tipoVisualizacao"
+              :items="[
+                { value: 'analitico', title: 'Analítico' },
+                { value: 'sintetico', title: 'Sintético' }
+              ]"
+              label="Tipo de Visualização"
+              variant="outlined"
+              density="compact"
+              hide-details
+              class="tipo-select"
+              style="min-width: 180px;"
+            />
+            <v-col cols="12" md="4" class="d-flex align-center ga-2">            
+            <v-text-field
+              v-model="buscaLocal"
+              label="Buscar na tabela..."
+              prepend-inner-icon="mdi-magnify"
+              variant="outlined"
+              density="compact"
+              clearable
+              hide-details
+              style="max-width: 300px;"
+              class="search-field"
+              @input="$emit('update:busca', buscaLocal)"
+            /></v-col>
+            
+                        <v-tooltip text="Configurar Colunas">
+              <template v-slot:activator="{ props }">
                 <v-btn
-                  color="primary"
-                  variant="tonal"
-                  prepend-icon="mdi-view-column"
+                  v-bind="props"
+                  icon="mdi-cog"
+                  variant="outlined"
+                  size="small"
                   @click="abrirModalColunas"
-                >
-                  Configurar Colunas
-                </v-btn>
-                <!-- Botão para exportar dados -->
+                  :disabled="tipoVisualizacao === 'sintetico'"
+                />
+            <v-col cols="12" md="2" class="d-flex justify-end ga-2">
                 <v-btn
-                  color="success"
-                  variant="tonal"
-                  prepend-icon="mdi-download"
-                  @click="exportarDados"
-                  :disabled="dados.length === 0"
+                size="small"
+                color="success"
+                variant="tonal"
+                prepend-icon="mdi-microsoft-excel"
+                @click="exportarDados"
+                v-if="dadosProcessados.length > 0"
                 >
-                  Exportar Excel
+                Exportar Excel
                 </v-btn>
-              </div>
-            </div>
-          </div>
-        </template>
+            </v-col>
+              </template>
+            </v-tooltip>
+        </div>
+      </div>
 
-        <!-- Estado quando não há dados -->
-        <template v-slot:no-data>
-          <div class="no-data-container">
-            <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-table-off</v-icon>
-            <h3 class="text-grey-darken-1 mb-2">Nenhum dado encontrado</h3>
-            <p class="text-grey">Configure os filtros e clique em "Filtrar" para carregar os dados.</p>
-          </div>
-        </template>
-        
-        <!-- Estado de carregamento -->
-        <template v-slot:loading>
-          <div class="loading-container">
-            <v-progress-circular
-              indeterminate
-              color="primary"
-              size="64"
-            ></v-progress-circular>
-            <p class="mt-4 text-grey">Carregando dados...</p>
-          </div>
-        </template>
-
-        <!-- Template customizado para as células da tabela -->
-        <template v-slot:item="{ item }">
-          <tr class="table-row-hover">
-            <td v-for="header in headersAtivos" :key="header.key" class="table-cell text-left">
-              <span 
-                :class="getCellClass(header.key)"
+      <!-- Container da Tabela -->
+      <div class="table-container">
+        <v-data-table
+          :headers="headersAtivos"
+          :items="dadosProcessados"
+          :loading="loading"
+          class="data-table-custom elevation-1"
+          item-value="id"
+          v-model:expanded="expanded"
+          density="comfortable"
+          height= 400px
+          fixed-header
+          hide-default-footer
+          :items-per-page="-1"
+        >
+          <!-- Slot para células customizadas -->
+          <template v-slot:item="{ item, columns }">
+            <tr 
+              :class="['table-row-hover', tipoVisualizacao === 'sintetico' ? 'clickable-row' : '']"
+              :key="item.id"
+              @click="tipoVisualizacao === 'sintetico' ? toggleExpansion(item) : null"
+            >
+              
+              <!-- Células de dados -->
+              <td 
+                v-for="column in (tipoVisualizacao === 'sintetico' ? headersSinteticos : colunasVisiveis)"
+                :key="column.key" 
+                :class="['table-cell', getCellClass(column.key)]"
+                :style="{ textAlign: column.align || 'start' }"
               >
-                {{ formatCellValue(obterValorDoItem(item, header.key), header.key) }}
-              </span>
-            </td>
-          </tr>
-        </template>
-      </v-data-table>
+                <!-- Conteúdo da célula com formatação -->
+                <div class="cell-content">
+                  <template v-if="column.key === 'parTipo' && tipoVisualizacao === 'analitico'">
+                    <v-chip
+                      :color="getTipoColor(obterValorDoItem(item, column.key))"
+                      size="small"
+                      variant="elevated"
+                    >
+                      {{ obterValorDoItem(item, column.key) }}
+                    </v-chip>
+                  </template>
+                  
+                  <template v-else-if="column.key === 'maquinarios' && tipoVisualizacao === 'sintetico'">
+                    <v-chip-group>
+                      <v-chip
+                        v-for="maq in (obterValorDoItem(item, column.key) || '').split(', ').filter(m => m)"
+                        :key="maq"
+                        size="x-small"
+                        variant="outlined"
+                        color="primary"
+                      >
+                        {{ maq }}
+                      </v-chip>
+                    </v-chip-group>
+                  </template>
+                  
+                  <template v-else-if="column.key === 'operadores' && tipoVisualizacao === 'sintetico'">
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props: tooltipProps }">
+                        <v-chip
+                          v-bind="tooltipProps"
+                          size="small"
+                          color="secondary"
+                          variant="elevated"
+                          class="operadores-chip"
+                        >
+                          {{ (obterValorDoItem(item, column.key) || '').split(', ').filter(o => o).length }} operador(es)
+                        </v-chip>
+                      </template>
+                      <div class="operadores-tooltip">
+                        <div class="tooltip-title">Operadores:</div>
+                        <div 
+                          v-for="op in (obterValorDoItem(item, column.key) || '').split(', ').filter(o => o)"
+                          :key="op"
+                          class="operador-item"
+                        >
+                          • {{ op }}
+                        </div>
+                      </div>
+                    </v-tooltip>
+                  </template>
+                  
+                  <template v-else>
+                    {{ formatCellValue(obterValorDoItem(item, column.key), column.key) }}
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </template>
+
+          <!-- Slot para linha expandida com detalhes (modo sintético) -->
+          <template v-slot:expanded-row="{ columns, item }" v-if="tipoVisualizacao === 'sintetico'">
+            <tr>
+              <td :colspan="columns.length" class="pa-0">
+                <v-card flat class="ma-2">
+                  <v-card-text class="pa-0">
+                    <v-data-table
+                      :headers="headersAnaliticoExpandido"
+                      :items="item._registrosOriginais"
+                      density="compact"
+                      class="elevation-0"
+                      hide-default-footer
+                      :items-per-page="-1"
+                      fixed-header
+                      height="400px"
+                    >
+                      <!-- Formatação customizada para tipo -->
+                      <template v-slot:item.parTipo="{ item: registro }">
+                        <v-chip
+                          :color="getTipoColor(registro.parTipo)"
+                          size="small"
+                          variant="elevated"
+                        >
+                          {{ registro.parTipo }}
+                        </v-chip>
+                      </template>
+
+                      <!-- Formatação customizada para maquinário -->
+                      <template v-slot:item.maqCod="{ item: registro }">
+                        {{ getMaquinarioNome(registro.maqCod) }}
+                      </template>
+
+                      <!-- Formatação customizada para data inicial -->
+                      <template v-slot:item.parDataIni="{ item: registro }">
+                        {{ formatarData(registro.parDataIni) }}
+                      </template>
+
+                      <!-- Formatação customizada para data final -->
+                      <template v-slot:item.parDataFim="{ item: registro }">
+                        {{ formatarData(registro.parDataFim) }}
+                      </template>
+
+                      <!-- Formatação customizada para hora inicial -->
+                      <template v-slot:item.parHoraIni="{ item: registro }">
+                        {{ formatarHoraSimples(registro.parHoraIni) }}
+                      </template>
+
+                      <!-- Formatação customizada para hora final -->
+                      <template v-slot:item.parHoraFim="{ item: registro }">
+                        {{ formatarHoraSimples(registro.parHoraFim) }}
+                      </template>
+
+                      <!-- Calcula e exibe duração -->
+                      <template v-slot:item.duracao="{ item: registro }">
+                        <v-chip size="small" color="info" variant="outlined">
+                          {{ formatarHoras(calcularDiferencaHoras(
+                            registro.parDataIni, 
+                            registro.parHoraIni, 
+                            registro.parDataFim, 
+                            registro.parHoraFim
+                          )) }}
+                        </v-chip>
+                      </template>
+                    </v-data-table>
+                  </v-card-text>
+                </v-card>
+              </td>
+            </tr>
+          </template>
+
+          <!-- Slot para estado vazio -->
+          <template v-slot:no-data>
+            <div class="text-center pa-8 no-data-container">
+              <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-table-off</v-icon>
+              <h3 class="text-grey-darken-1 mb-2">Nenhum dado encontrado</h3>
+              <p class="text-grey">Configure os filtros e clique em "Filtrar" para carregar os dados.</p>
+            </div>
+          </template>
+
+          <!-- Slot para loading -->
+          <template v-slot:loading>
+            <div class="text-center pa-8 loading-container">
+              <v-progress-circular
+                indeterminate
+                color="primary"
+                size="64"
+              ></v-progress-circular>
+              <p class="mt-4 text-grey">Carregando dados...</p>
+            </div>
+          </template>
+        </v-data-table>
+      </div>
     </v-card>
   </div>
 
   <!-- Modal de Configuração de Colunas -->
   <v-dialog v-model="modalColunas" max-width="600" persistent>
     <v-card class="column-config-modal">
-      
       <!-- Header do Modal -->
-      <v-card-title class="modal-header pa-4">
-        <div class="d-flex align-center w-100">
-          <div class="d-flex align-center">
-            <v-icon color="white" size="24" class="mr-2">mdi-view-column</v-icon>
-            <h2 class="modal-title">Configurar Colunas</h2>
-          </div>
-          <v-spacer />
+      <div class="modal-header pa-4">
+        <div class="d-flex justify-space-between align-center">
+          <h3 class="modal-title">Configurar Colunas</h3>
           <v-btn
             icon="mdi-close"
             variant="text"
@@ -132,139 +265,132 @@
             @click="fecharModalColunas"
           />
         </div>
-      </v-card-title>
-      
+      </div>
+
       <!-- Conteúdo do Modal -->
-      <v-card-text class="pa-0">
-        <div class="config-content pa-4">
-          <div class="config-section">
-            
-            <!-- Header da seção com estatísticas e ações -->
-            <div class="section-header mb-4">
-              <!-- Estatísticas das colunas -->
-              <div class="section-stats">
-                <v-chip color="success" size="small" class="mr-2">
-                  <v-icon size="14" class="mr-1">mdi-eye</v-icon>
-                  {{ colunasVisiveis.length }} Ativas
-                </v-chip>
-                <v-chip color="warning" size="small" class="mr-2">
-                  <v-icon size="14" class="mr-1">mdi-eye-off</v-icon>
-                  {{ configColunas.length - colunasVisiveis.length }} Inativas
-                </v-chip>
-              </div>
-              
-              <!-- Ações rápidas -->
-              <div class="section-actions">
-                <v-btn
-                  size="small"
-                  variant="outlined"
-                  color="primary"
-                  @click="selecionarTodas"
-                  class="mr-2"
-                >
-                  <v-icon size="16" class="mr-1">mdi-check-all</v-icon>
-                  Todas
-                </v-btn>
-                <v-btn
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  @click="deselecionarTodas"
-                >
-                  <v-icon size="16" class="mr-1">mdi-close-box-multiple</v-icon>
-                  Nenhuma
-                </v-btn>
-              </div>
-            </div>
-
-            <!-- Lista Ordenável de Colunas com Drag & Drop -->
-            <div class="columns-list">
-              <transition-group 
-                name="column-item" 
-                tag="div" 
-                class="sortable-list"
-              >
-                <div
-                  v-for="(coluna, index) in configColunas"
-                  :key="coluna.key"
-                  :class="getColumnItemClass(coluna)"
-                  :draggable="true"
-                  @dragstart="iniciarArraste(index)"
-                  @dragover.prevent
-                  @dragenter.prevent
-                  @drop="soltarItem(index)"
-                  @dragend="finalizarArraste"
-                >
-                  <div class="column-item-content">
-                    <!-- Handle para arrastar -->
-                    <div class="drag-handle">
-                      <v-icon size="20" color="grey-darken-1">mdi-drag-vertical</v-icon>
-                    </div>
-
-                    <!-- Checkbox da coluna -->
-                    <v-checkbox
-                      v-model="coluna.visivel"
-                      color="primary"
-                      density="compact"
-                      hide-details
-                      class="column-checkbox"
-                      @change="atualizarPrevisualizacao"
-                    />
-
-                    <!-- Informações da Coluna -->
-                    <div class="column-info">
-                      <div class="column-title">{{ coluna.title }}</div>
-                      <div class="column-key">{{ coluna.key }}</div>
-                    </div>
-
-                    <!-- Status da coluna -->
-                    <div class="column-status">
-                      <v-chip
-                        :color="coluna.visivel ? 'success' : 'grey'"
-                        :variant="coluna.visivel ? 'tonal' : 'outlined'"
-                        size="small"
-                        class="status-chip"
-                      >
-                        <v-icon 
-                          :icon="coluna.visivel ? 'mdi-eye' : 'mdi-eye-off'"
-                          size="14"
-                          class="mr-1"
-                        />
-                        {{ coluna.visivel ? 'Visível' : 'Oculta' }}
-                      </v-chip>
-                    </div>
-
-                    <!-- Indicador de ordem -->
-                    <div class="order-indicator">
-                      <v-chip
-                        color="primary"
-                        variant="elevated"
-                        size="small"
-                        v-if="coluna.visivel"
-                      >
-                        {{ obterOrdemColuna(index) }}
-                      </v-chip>
-                    </div>
-                  </div>
-                </div>
-              </transition-group>
-            </div>
+      <v-card-text class="config-content pa-0">
+        <!-- Seção de Informações -->
+        <div class="pa-4 border-b">
+          <div class="section-header mb-3">
+            <v-icon class="mr-2" color="info">mdi-information</v-icon>
+            <span class="text-subtitle-1 font-weight-medium">Gerenciar Colunas</span>
+          </div>
+          
+          <div class="section-stats mb-3">
+            <v-chip size="small" color="success" variant="outlined" class="mr-2">
+              {{ colunasVisiveis.length }} visíveis
+            </v-chip>
+            <v-chip size="small" color="warning" variant="outlined">
+              {{ configColunas.filter(c => !c.visivel).length }} ocultas
+            </v-chip>
+          </div>
+          
+          <div class="section-actions">
+            <v-btn
+              size="small"
+              color="primary"
+              variant="outlined"
+              prepend-icon="mdi-check-all"
+              @click="selecionarTodas"
+              class="mr-2"
+            >
+              Selecionar Todas
+            </v-btn>
+            <v-btn
+              size="small"
+              color="error"
+              variant="outlined"
+              prepend-icon="mdi-close-box-multiple"
+              @click="deselecionarTodas"
+            >
+              Desmarcar Todas
+            </v-btn>
           </div>
         </div>
+
+        <!-- Lista de Colunas Ordenável -->
+        <div class="pa-4" style="max-height: 400px; overflow-y: auto;">
+          <transition-group name="column-item" tag="div" class="sortable-list">
+            <div
+              v-for="(coluna, index) in configColunas"
+              :key="coluna.key"
+              :class="getColumnItemClass(coluna)"
+              draggable="true"
+              @dragstart="iniciarArraste(index)"
+              @dragend="finalizarArraste"
+              @dragover.prevent
+              @drop.prevent="soltarItem(index)"
+            >
+              <div class="column-item-content d-flex align-center">
+                <!-- Handle de arrastar -->
+                <div class="drag-handle mr-3">
+                  <v-icon size="small" color="grey-darken-1">mdi-drag-vertical</v-icon>
+                </div>
+
+                <!-- Checkbox de visibilidade -->
+                <v-checkbox
+                  v-model="coluna.visivel"
+                  class="column-checkbox mr-3"
+                  hide-details
+                  density="compact"
+                  @change="atualizarPrevisualizacao"
+                />
+
+                <!-- Informações da coluna -->
+                <div class="column-info flex-grow-1">
+                  <div class="column-title text-body-2 font-weight-medium">
+                    {{ coluna.title }}
+                  </div>
+                  <div class="column-key text-caption text-grey-darken-1">
+                    {{ coluna.key }}
+                  </div>
+                </div>
+
+                <!-- Status da coluna -->
+                <div class="column-status">
+                  <v-chip
+                    v-if="coluna.visivel"
+                    size="x-small"
+                    color="success"
+                    variant="elevated"
+                    class="status-chip"
+                  >
+                    {{ obterOrdemColuna(index) }}°
+                  </v-chip>
+                  <v-chip
+                    v-else
+                    size="x-small"
+                    color="grey"
+                    variant="outlined"
+                    class="status-chip"
+                  >
+                    Oculta
+                  </v-chip>
+                </div>
+              </div>
+            </div>
+          </transition-group>
+        </div>
       </v-card-text>
-      
-      <!-- Botões de ação do modal -->
-      <v-card-actions class="pa-4">
+
+      <!-- Footer do Modal -->
+      <v-card-actions class="pa-4 border-t">
         <v-spacer />
+        <v-btn
+          color="grey"
+          variant="outlined"
+          @click="fecharModalColunas"
+          :disabled="salvandoColunas"
+        >
+          Cancelar
+        </v-btn>
         <v-btn
           color="primary"
           variant="elevated"
           @click="aplicarConfiguracaoColunas"
           :loading="salvandoColunas"
           :disabled="colunasVisiveis.length === 0"
-          size="large"
         >
-          <v-icon size="18" class="mr-2">mdi-check</v-icon>
           Aplicar Configuração
         </v-btn>
       </v-card-actions>
@@ -314,9 +440,8 @@ const emit = defineEmits(['atualizar', 'update:busca']);
 // ===== ESTADOS REATIVOS =====
 // Estados básicos
 const buscaLocal = ref(props.busca);
-const currentPage = ref(1);
-const itemsPerPage = ref(10);
 const tipoVisualizacao = ref('analitico'); // 'analitico' ou 'sintetico'
+const expanded = ref([]);
 
 // Estados do modal de configuração
 const modalColunas = ref(false);
@@ -332,16 +457,6 @@ const maquinarioStore = maquinario();
 const maquinarios = ref([]);
 
 // ===== CONFIGURAÇÕES CONSTANTES =====
-// Opções de paginação
-const itemsPerPageOptions = [
-  { value: 10, title: '10' },
-  { value: 15, title: '15' },
-  { value: 25, title: '25' },
-  { value: 50, title: '50' },
-  { value: 100, title: '100' },
-  { value: -1, title: 'Todos' }
-];
-
 // Campos possíveis da API prodParada
 const todosOsCamposPossiveis = [
   { key: 'parID', title: 'ID' },
@@ -362,12 +477,6 @@ const todosOsCamposPossiveis = [
 // Sincroniza busca com prop externa
 watch(() => props.busca, (newVal) => {
   buscaLocal.value = newVal;
-  currentPage.value = 1;
-});
-
-// Reset página quando dados mudam
-watch(() => props.dados, () => {
-  currentPage.value = 1;
 });
 
 // Atualiza configuração quando headers mudam
@@ -403,6 +512,22 @@ const headersDetalheSintetico = computed(() => [
   { title: 'Registros', key: 'quantidadeRegistros', align: 'start', sortable: false }
 ]);
 
+// Headers analíticos para expansão no modo sintético
+const headersAnaliticoExpandido = computed(() => [
+  { title: 'ID', key: 'parID', align: 'start', sortable: true },
+  { title: 'Tipo', key: 'parTipo', align: 'start', sortable: true },
+  { title: 'Maquinário', key: 'maqCod', align: 'start', sortable: true },
+  { title: 'Data Inicial', key: 'parDataIni', align: 'start', sortable: true },
+  { title: 'Hora Inicial', key: 'parHoraIni', align: 'start', sortable: true },
+  { title: 'Data Final', key: 'parDataFim', align: 'start', sortable: true },
+  { title: 'Hora Final', key: 'parHoraFim', align: 'start', sortable: true },
+  { title: 'Duração', key: 'duracao', align: 'start', sortable: false },
+  { title: 'Usuário', key: 'userCod', align: 'start', sortable: true },
+  { title: 'Motivo', key: 'parMotivo', align: 'start', sortable: true },
+  { title: 'Qtd Vez', key: 'parQtdVez', align: 'end', sortable: true },
+  { title: 'Peneira', key: 'parPeneira', align: 'start', sortable: true }
+]);
+
 // Headers ativos baseados no tipo de visualização
 const headersAtivos = computed(() => {
   return tipoVisualizacao.value === 'sintetico' ? headersSinteticos.value : props.headers;
@@ -416,77 +541,78 @@ const dadosSinteticos = computed(() => {
   const agrupamentoPorOP = {};
   
   props.dados.forEach(item => {
-    const op = obterValorDoItem(item, 'parOP') || 'SEM OP';
-    const tipo = obterValorDoItem(item, 'parTipo') || 'N/A';
-    const maqCod = obterValorDoItem(item, 'maqCod') || '';
-    const userCod = obterValorDoItem(item, 'userCod') || '';
+    const op = item.parOP || 'SEM_OP';
+    const tipo = item.parTipo || 'INDEFINIDO';
+    const maqCod = item.maqCod || '';
+    const userCod = item.userCod || '';
     
-    // Cria entrada da OP se não existir
+    // Inicializa OP se não existir
     if (!agrupamentoPorOP[op]) {
       agrupamentoPorOP[op] = {
+        id: `op_${op}`,
         parOP: op,
-        totalHoras: 0,
-        tempoProducao: 0,
-        tempoParada: 0,
-        quantidadeRegistros: 0,
         maquinarios: new Set(),
         operadores: new Set(),
-        _detalhes: {} // Agrupamento por tipo dentro da OP
+        tempoProducao: 0,
+        tempoParada: 0,
+        totalHoras: 0,
+        quantidadeRegistros: 0,
+        _detalhes: {},
+        _registrosOriginais: [] // Adiciona array para armazenar registros originais
       };
     }
     
-    // Adiciona maquinário e operador aos conjuntos
-    if (maqCod) agrupamentoPorOP[op].maquinarios.add(maqCod);
-    if (userCod) agrupamentoPorOP[op].operadores.add(userCod);
+    // Adiciona o registro original completo
+    agrupamentoPorOP[op]._registrosOriginais.push(item);
     
-    // Cria entrada do tipo dentro da OP se não existir
+    // Adiciona maquinário e operador aos sets
+    if (maqCod) {
+      const nomeMaq = maquinarioMap.value[maqCod] || maqCod;
+      agrupamentoPorOP[op].maquinarios.add(nomeMaq);
+    }
+    if (userCod) {
+      agrupamentoPorOP[op].operadores.add(userCod);
+    }
+    
+    // Calcula horas para este registro
+    const horas = calcularDiferencaHoras(
+      item.parDataIni, item.parHoraIni, 
+      item.parDataFim, item.parHoraFim
+    );
+    
+    // Soma ao total geral
+    agrupamentoPorOP[op].totalHoras += horas;
+    agrupamentoPorOP[op].quantidadeRegistros += 1;
+    
+    // Soma por tipo
+    if (tipo === 'PRO') {
+      agrupamentoPorOP[op].tempoProducao += horas;
+    } else {
+      agrupamentoPorOP[op].tempoParada += horas;
+    }
+    
+    // Inicializa detalhes por tipo se não existir
     if (!agrupamentoPorOP[op]._detalhes[tipo]) {
       agrupamentoPorOP[op]._detalhes[tipo] = {
-        parTipo: tipo,
         totalHoras: 0,
         quantidadeRegistros: 0
       };
     }
     
-    // Calcula duração em horas
-    const dataIni = obterValorDoItem(item, 'parDataIni');
-    const horaIni = obterValorDoItem(item, 'parHoraIni');
-    const dataFim = obterValorDoItem(item, 'parDataFim');
-    const horaFim = obterValorDoItem(item, 'parHoraFim');
-    
-    const horas = calcularDiferencaHoras(dataIni, horaIni, dataFim, horaFim);
-    
-    // Soma no total da OP
-    agrupamentoPorOP[op].totalHoras += horas;
-    agrupamentoPorOP[op].quantidadeRegistros += 1;
-    
-    // Separa por tipo de tempo
-    if (tipo === 'PRO') {
-      agrupamentoPorOP[op].tempoProducao += horas;
-    } else if (tipo === 'PAR' || tipo === 'PRF') {
-      agrupamentoPorOP[op].tempoParada += horas;
-    }
-    
-    // Soma no total do tipo
+    // Soma aos detalhes por tipo
     agrupamentoPorOP[op]._detalhes[tipo].totalHoras += horas;
     agrupamentoPorOP[op]._detalhes[tipo].quantidadeRegistros += 1;
   });
   
   // Converte objeto em array e formata horas
   return Object.values(agrupamentoPorOP).map((op, index) => ({
-    id: `op-${index}-${op.parOP}`, // ID único para expansão
-    parOP: op.parOP,
-    maquinarios: Array.from(op.maquinarios).map(cod => formatMaquinarioValue(cod)).join(', '),
+    ...op,
+    id: `op_${op.parOP}_${index}`,
+    maquinarios: Array.from(op.maquinarios).join(', '),
     operadores: Array.from(op.operadores).join(', '),
     tempoProducao: formatarHoras(op.tempoProducao),
     tempoParada: formatarHoras(op.tempoParada),
-    totalHoras: formatarHoras(op.totalHoras),
-    quantidadeRegistros: op.quantidadeRegistros,
-    _detalhes: Object.values(op._detalhes).map(tipo => ({
-      parTipo: tipo.parTipo,
-      totalHoras: formatarHoras(tipo.totalHoras),
-      quantidadeRegistros: tipo.quantidadeRegistros
-    }))
+    totalHoras: formatarHoras(op.totalHoras)
   }));
 });
 
@@ -499,15 +625,9 @@ const dadosProcessados = computed(() => {
   
   const termoBusca = buscaLocal.value.toLowerCase();
   return dados.filter(item => {
-    // Para dados sintéticos, busca apenas nos campos visíveis (exclui _detalhes e id)
-    const camposPesquisaveis = Object.entries(item).filter(([key]) => !key.startsWith('_') && key !== 'id');
-    
-    return camposPesquisaveis.some(([key, valor]) => {
-      // Verifica se o valor não é um objeto ou array
-      if (typeof valor !== 'object' && valor !== null) {
-        return String(valor).toLowerCase().includes(termoBusca);
-      }
-      return false;
+    return Object.values(item).some(valor => {
+      if (valor === null || valor === undefined) return false;
+      return String(valor).toLowerCase().includes(termoBusca);
     });
   });
 });
@@ -528,19 +648,16 @@ const filteredItems = computed(() => {
   
   // Depois ordena por data e hora cronologicamente
   return [...dadosFiltrados].sort((a, b) => {
-    // Obtém data inicial de cada item (tentando diferentes variações de chave)
-    const dataA = obterValorDoItem(a, 'parDataIni') || obterValorDoItem(a, 'ParDataIni') || '';
-    const dataB = obterValorDoItem(b, 'parDataIni') || obterValorDoItem(b, 'ParDataIni') || '';
+    const dataA = a.parDataIni || '';
+    const horaA = a.parHoraIni || '';
+    const dataB = b.parDataIni || '';
+    const horaB = b.parHoraIni || '';
     
-    // Compara as datas (formato YYYYMMDD permite comparação direta como string)
-    if (dataA !== dataB) {
-      return dataA.localeCompare(dataB);
-    }
+    // Compara primeiro por data
+    const compareData = dataA.localeCompare(dataB);
+    if (compareData !== 0) return compareData;
     
-    // Se as datas são iguais, ordena por hora
-    const horaA = obterValorDoItem(a, 'parHoraIni') || obterValorDoItem(a, 'ParHoraIni') || '00:00';
-    const horaB = obterValorDoItem(b, 'parHoraIni') || obterValorDoItem(b, 'ParHoraIni') || '00:00';
-    
+    // Se as datas são iguais, compara por hora
     return horaA.localeCompare(horaB);
   });
 });
@@ -565,37 +682,40 @@ const maquinarioMap = computed(() => {
  */
 const calcularDiferencaHoras = (dataIni, horaIni, dataFim, horaFim) => {
   try {
-    // Se não tiver todos os dados, retorna 0
-    if (!dataIni || !horaIni || !dataFim || !horaFim) return 0;
-    
-    // Converte data de YYYYMMDD para Date
-    const parseData = (dataStr, horaStr) => {
-      if (!dataStr || dataStr.length !== 8) return null;
-      
-      const ano = dataStr.substring(0, 4);
-      const mes = dataStr.substring(4, 6);
-      const dia = dataStr.substring(6, 8);
-      
-      // Converte hora HH:MM para horas e minutos
-      const [horas, minutos] = horaStr.split(':');
-      
-      return new Date(ano, parseInt(mes) - 1, dia, parseInt(horas), parseInt(minutos));
+    // Converte data de YYYYMMDD para YYYY-MM-DD se necessário
+    const formatarData = (data) => {
+      if (typeof data === 'string' && data.length === 8) {
+        return `${data.substring(0, 4)}-${data.substring(4, 6)}-${data.substring(6, 8)}`;
+      }
+      return data;
     };
     
-    const dateIni = parseData(dataIni, horaIni);
-    const dateFim = parseData(dataFim, horaFim);
+    // Formatar hora para HH:MM se necessário
+    const formatarHora = (hora) => {
+      if (typeof hora === 'string') {
+        if (hora.length === 6) { // HHMMSS
+          return `${hora.substring(0, 2)}:${hora.substring(2, 4)}:${hora.substring(4, 6)}`;
+        } else if (hora.length === 4) { // HHMM
+          return `${hora.substring(0, 2)}:${hora.substring(2, 4)}:00`;
+        }
+      }
+      return hora;
+    };
     
-    if (!dateIni || !dateFim) return 0;
+    const dataIniFormatada = formatarData(dataIni);
+    const horaIniFormatada = formatarHora(horaIni);
+    const dataFimFormatada = formatarData(dataFim);
+    const horaFimFormatada = formatarHora(horaFim);
     
-    // Calcula diferença em milissegundos
-    const diferencaMs = dateFim - dateIni;
+    const inicio = new Date(`${dataIniFormatada}T${horaIniFormatada}`);
+    const fim = new Date(`${dataFimFormatada}T${horaFimFormatada}`);
     
-    // Converte para horas (com decimais)
-    const horas = diferencaMs / (1000 * 60 * 60);
+    const diferencaMs = fim.getTime() - inicio.getTime();
+    const horas = diferencaMs / (1000 * 60 * 60); // Converte para horas
     
     return horas > 0 ? horas : 0;
   } catch (error) {
-    console.error('Erro ao calcular diferença de horas:', error);
+    console.warn('Erro ao calcular diferença de horas:', error);
     return 0;
   }
 };
@@ -617,15 +737,45 @@ const formatarHoras = (horasDecimais) => {
  */
 const getTipoColor = (tipo) => {
   switch(tipo) {
-    case 'PRO':
-      return 'success'; // Verde para produção
-    case 'PAR':
-      return 'warning'; // Amarelo para parada
-    case 'PRF':
-      return 'error'; // Vermelho para parada final
-    default:
-      return 'grey';
+    case 'PRO': return 'success';
+    case 'PAR': return 'warning';
+    case 'PRF': return 'error';
+    default: return 'grey';
   }
+};
+
+/**
+ * Formata data do formato YYYYMMDD para DD/MM/YYYY
+ */
+const formatarData = (data) => {
+  if (!data) return '-';
+  if (typeof data === 'string' && data.length === 8) {
+    return `${data.substring(6, 8)}/${data.substring(4, 6)}/${data.substring(0, 4)}`;
+  }
+  return data;
+};
+
+/**
+ * Formata hora do formato HHMMSS ou HHMM para HH:MM
+ */
+const formatarHoraSimples = (hora) => {
+  if (!hora) return '-';
+  if (typeof hora === 'string') {
+    if (hora.length === 6) { // HHMMSS
+      return `${hora.substring(0, 2)}:${hora.substring(2, 4)}`;
+    } else if (hora.length === 4) { // HHMM
+      return `${hora.substring(0, 2)}:${hora.substring(2, 4)}`;
+    }
+  }
+  return hora;
+};
+
+/**
+ * Retorna nome do maquinário pelo código
+ */
+const getMaquinarioNome = (maqCod) => {
+  if (!maqCod) return '-';
+  return maquinarioMap.value[maqCod] || maqCod;
 };
 
 /**
@@ -708,7 +858,7 @@ const formatMaquinarioValue = (value) => {
 const getColumnItemClass = (coluna) => {
   return [
     'column-item',
-    { 'column-visible': coluna.visivel, 'column-hidden': !coluna.visivel }
+    coluna.visivel ? 'column-visible' : 'column-hidden'
   ];
 };
 
@@ -760,10 +910,10 @@ const formatDateValue = (value) => {
   if (!value) return '-';
   // Se for uma data no formato YYYYMMDD, converte para DD/MM/YYYY
   if (typeof value === 'string' && value.length === 8 && /^\d{8}$/.test(value)) {
-    const year = value.substring(0, 4);
-    const month = value.substring(4, 6);
-    const day = value.substring(6, 8);
-    return `${day}/${month}/${year}`;
+    const ano = value.substring(0, 4);
+    const mes = value.substring(4, 6);
+    const dia = value.substring(6, 8);
+    return `${dia}/${mes}/${ano}`;
   }
   return value;
 };
@@ -773,16 +923,15 @@ const formatDateValue = (value) => {
  */
 const formatCellValue = (value, fieldKey) => {
   if (fieldKey === 'totalHoras' || fieldKey === 'tempoProducao' || fieldKey === 'tempoParada') {
-    // Já vem formatado do computed
+    // Estes campos já vêm formatados do computed
     return value || '0h 00min';
   } else if (fieldKey === 'quantidadeRegistros') {
     return value || '0';
   } else if (fieldKey === 'maquinarios' || fieldKey === 'operadores') {
     return value || '-';
   } else if (isIdField(fieldKey)) {
-    // IDs são números inteiros, sem casas decimais
     if (value === null || value === undefined || value === '') return '-';
-    const num = parseInt(value);
+    const num = parseFloat(value);
     if (isNaN(num)) return value;
     return num.toString();
   } else if (isNumericField(fieldKey)) {
@@ -797,20 +946,18 @@ const formatCellValue = (value, fieldKey) => {
   return value || '-';
 };
 
-// ===== FUNÇÕES DE PAGINAÇÃO =====
+// ===== FUNÇÕES DE CONTROLE DE EXPANSÃO =====
 /**
- * Manipula mudança de página
+ * Toggle expansão de item
  */
-const onPageChange = (page) => {
-  currentPage.value = page;
-};
-
-/**
- * Manipula mudança de itens por página
- */
-const onItemsPerPageChange = (itemsPerPageValue) => {
-  itemsPerPage.value = itemsPerPageValue;
-  currentPage.value = 1; // Reset para primeira página
+const toggleExpansion = (item) => {
+  const itemId = item.id;
+  const index = expanded.value.findIndex(id => id === itemId);
+  if (index > -1) {
+    expanded.value.splice(index, 1);
+  } else {
+    expanded.value.push(itemId);
+  }
 };
 
 // ===== FUNÇÕES DE CONFIGURAÇÃO DE COLUNAS =====
@@ -820,44 +967,44 @@ const onItemsPerPageChange = (itemsPerPageValue) => {
 const atualizarConfigColunas = (headers, labelMapCompleto = null) => {
   // Se temos labelMap completo da resposta, usa ele para saber todos os campos
   if (labelMapCompleto && Array.isArray(labelMapCompleto)) {
-    configColunas.value = labelMapCompleto.map((item, index) => ({
-      key: normalizarChave(item.key), // Normaliza a chave para minúscula
-      title: item.label || item.title,
-      visivel: item.exibe === 'S', // Marca como visível se exibe='S'
-      ordem: index + 1
+    configColunas.value = labelMapCompleto.map((campo, index) => ({
+      key: campo.key || campo.name,
+      title: campo.title || campo.label || campo.name,
+      visivel: headers ? headers.some(h => h.key === (campo.key || campo.name)) : index < 10
     }));
   } 
   // Se não temos labelMap completo, mas temos headers ativos, complementa com os possíveis
   else if (headers && headers.length > 0) {
-    // Primeiro, adiciona os headers que estão ativos
-    const camposAtivos = headers.map((header, index) => ({
-      key: header.key,
-      title: header.title,
-      visivel: true, // Se está no header, está ativo
-      ordem: index + 1
-    }));
+    const headersMap = new Map();
     
-    // Depois, adiciona os campos possíveis que não estão nos headers (como inativos)
+    // Primeiro adiciona os headers ativos
+    headers.forEach(header => {
+      headersMap.set(header.key, {
+        key: header.key,
+        title: header.title,
+        visivel: true
+      });
+    });
+    
+    // Depois adiciona os campos possíveis que não estão nos headers
     todosOsCamposPossiveis.forEach(campo => {
-      if (!camposAtivos.find(ativo => ativo.key === campo.key)) {
-        camposAtivos.push({
+      if (!headersMap.has(campo.key)) {
+        headersMap.set(campo.key, {
           key: campo.key,
           title: campo.title,
-          visivel: false, // Se não está no header, está inativo
-          ordem: camposAtivos.length + 1
+          visivel: false
         });
       }
     });
     
-    configColunas.value = camposAtivos;
+    configColunas.value = Array.from(headersMap.values());
   }
   // Fallback: usa apenas a lista de campos possíveis
   else {
     configColunas.value = todosOsCamposPossiveis.map((campo, index) => ({
       key: campo.key,
       title: campo.title,
-      visivel: false, // Por padrão, todos inativos
-      ordem: index + 1
+      visivel: index < 5 // Primeiros 5 visíveis por padrão
     }));
   }
   
@@ -870,9 +1017,9 @@ const atualizarConfigColunas = (headers, labelMapCompleto = null) => {
  */
 const obterOrdemColuna = (index) => {
   const colunasViseisAteIndex = configColunas.value
-    .slice(0, index + 1)
+    .slice(0, index)
     .filter(coluna => coluna.visivel);
-  return colunasViseisAteIndex.length;
+  return colunasViseisAteIndex.length + 1;
 };
 
 // ===== FUNÇÕES DO MODAL =====
@@ -953,34 +1100,37 @@ const aplicarConfiguracaoColunas = async () => {
   
   try {
     // Monta o payload com as colunas na ordem configurada pelo usuário
+    // Usando o mesmo formato do logTable.vue que funciona
     const colunasOrdenadas = configColunas.value.map(coluna => ({
-      key: coluna.key,
+      key: normalizarChave(coluna.key), // Normaliza para primeira letra minúscula
       value: coluna.visivel ? 'S' : 'N'
     }));
     
     const payload = colunasOrdenadas
       .map(item => `${item.key}=${item.value}`)
       .join(',');
-    
+
     // Parâmetros da query
     const queryParams = {
-      grid: 'PRODPAR', // Grid específico para produção/parada
+      grid: 'ProdPar', 
       user: localStorage.getItem('user')
     };
-    
-    // Envio para a API
+
+    console.log('Payload enviado para setColumn:', payload);
+
+    // Salva a configuração na API usando o método correto
     const response = await setColumnStore.setColumn(payload, queryParams);
-    
-    // Fecha o modal
-    modalColunas.value = false;
-    
-    // Emite evento para o componente pai atualizar os dados
+
+    // Emite evento para atualizar a tabela pai
     emit('atualizar');
     
-    // Feedback de sucesso
+    // Fecha o modal
+    fecharModalColunas();
+    
     alert(`✅ Configuração salva com sucesso!\n\n📊 ${colunasVisiveis.value.length} colunas ativas de ${configColunas.value.length} disponíveis\n\n🔄 Atualize os dados para ver as mudanças.`);
     
   } catch (error) {
+    console.error('❌ Erro ao salvar configuração de colunas:', error);
     alert(`❌ Erro ao salvar configuração: ${error.message}`);
   } finally {
     salvandoColunas.value = false;
@@ -1009,6 +1159,9 @@ const exportarDados = () => {
           td { padding: 8px; border: 1px solid #ccc; text-align: left; }
           .numeric { text-align: left; }
           .date { text-align: left; }
+          .detalhes-header { background-color: #78909c; color: white; font-weight: bold; }
+          .detalhes-row { background-color: #f5f5f5; }
+          .separador { height: 10px; background-color: white; }
         </style>
       </head>
       <body>
@@ -1017,8 +1170,8 @@ const exportarDados = () => {
             <tr>
     `;
 
-    // Adiciona cabeçalhos
-    props.headers.forEach(header => {
+    // Adiciona cabeçalhos principais
+    headersAtivos.value.forEach(header => {
       excelContent += `<th>${header.title}</th>`;
     });
 
@@ -1028,32 +1181,59 @@ const exportarDados = () => {
           <tbody>
     `;
 
-    // Adiciona dados
-    props.dados.forEach(item => {
-      excelContent += '<tr>';
-      props.headers.forEach(header => {
-        // Usa obterValorDoItem para garantir que pega o valor correto
-        let value = obterValorDoItem(item, header.key);
-        let cellClass = '';
-        
-        // Aplica formatação baseada no tipo de campo
-        if (isNumericField(header.key)) {
-          cellClass = 'numeric';
-          value = formatNumericValue(value);
-        } else if (isDateField(header.key)) {
-          cellClass = 'date';
-          value = formatDateValue(value);
-        }
-        
-        // Garante que value é uma string antes de aplicar replace
-        value = value !== null && value !== undefined ? String(value) : '';
+    // Adiciona dados baseado no tipo de visualização
+    const dadosParaExportar = tipoVisualizacao.value === 'sintetico' ? dadosSinteticos.value : props.dados;
+    
+    dadosParaExportar.forEach((item, index) => {
+      // Linha do cabeçalho principal
+      excelContent += '<tr style="background-color: #e0e0e0; font-weight: bold;">';
+      headersAtivos.value.forEach(header => {
+        let value = obterValorDoItem(item, header.key) || '';
         
         // Escapa caracteres especiais para HTML
-        value = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        value = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         
-        excelContent += `<td class="${cellClass}">${value}</td>`;
+        excelContent += `<td>${value}</td>`;
       });
       excelContent += '</tr>';
+
+      // Se existem detalhes no modo sintético, adiciona a seção de detalhes
+      if (tipoVisualizacao.value === 'sintetico' && item._detalhes && Object.keys(item._detalhes).length > 0) {
+        // Linha de título dos detalhes
+        excelContent += `<tr class="detalhes-header">`;
+        excelContent += `<td colspan="${headersAtivos.value.length}" style="background-color: #78909c; color: white; font-weight: bold; padding: 8px;">DETALHES DA OP ${item.parOP}</td>`;
+        excelContent += `</tr>`;
+
+        // Cabeçalhos dos detalhes
+        excelContent += '<tr class="detalhes-header">';
+        headersDetalheSintetico.value.forEach(header => {
+          excelContent += `<th style="background-color: #90a4ae; color: white;">${header.title}</th>`;
+        });
+        // Preenche colunas vazias restantes se necessário
+        const colunasRestantes = headersAtivos.value.length - headersDetalheSintetico.value.length;
+        for (let i = 0; i < colunasRestantes; i++) {
+          excelContent += `<th style="background-color: #90a4ae;"></th>`;
+        }
+        excelContent += '</tr>';
+
+        // Linhas de detalhes
+        Object.entries(item._detalhes).forEach(([tipo, dados]) => {
+          excelContent += '<tr class="detalhes-row">';
+          excelContent += `<td>${tipo}</td>`;
+          excelContent += `<td>${formatarHoras(dados.totalHoras)}</td>`;
+          excelContent += `<td>${dados.quantidadeRegistros}</td>`;
+          // Preenche colunas vazias restantes
+          for (let i = 0; i < colunasRestantes; i++) {
+            excelContent += `<td></td>`;
+          }
+          excelContent += '</tr>';
+        });
+      }
+
+      // Linha separadora entre registros (exceto no último)
+      if (index < dadosParaExportar.length - 1) {
+        excelContent += `<tr class="separador"><td colspan="${headersAtivos.value.length}"></td></tr>`;
+      }
     });
 
     excelContent += `
@@ -1077,7 +1257,8 @@ const exportarDados = () => {
     const dataFormatada = agora.toLocaleDateString('pt-BR').replace(/\//g, '-');
     const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, 'h');
     
-    link.setAttribute('download', `Guia_Entrada_${dataFormatada}_${horaFormatada}.xls`);
+    const tipoArquivo = tipoVisualizacao.value === 'sintetico' ? 'Sintetico' : 'Analitico';
+    link.setAttribute('download', `Relatorio_Producao_Parada_${tipoArquivo}_${dataFormatada}_${horaFormatada}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -1086,7 +1267,9 @@ const exportarDados = () => {
     // Libera a URL do blob
     URL.revokeObjectURL(url);
     
+    console.log('Arquivo Excel exportado com sucesso!');
   } catch (error) {
+    console.error('Erro ao exportar dados para Excel:', error);
     alert('Erro ao exportar dados para Excel');
   }
 };
@@ -1097,12 +1280,9 @@ const exportarDados = () => {
  */
 const carregarMaquinarios = async () => {
   try {
-    const response = await maquinarioStore.maquinario();
-    if (Array.isArray(response)) {
-      maquinarios.value = response.map((nome, index) => ({
-        nome: nome.trim(),
-        id: String(index + 1).padStart(3, '0')
-      }));
+    const response = await maquinarioStore.fetchMaquinario();
+    if (response && Array.isArray(response)) {
+      maquinarios.value = response;
     }
   } catch (error) {
     console.error('Erro ao carregar maquinários:', error);
@@ -1138,20 +1318,20 @@ onMounted(() => {
 
 /* Select de tipo de visualização */
 .tipo-select :deep(.v-field__outline) {
-  border-color: white;
+  border-color: #1976d2;
 }
 
 .tipo-select :deep(.v-field) {
-  background-color: rgba(255, 255, 255, 0.1);
+  min-height: 40px;
 }
 
 .tipo-select :deep(.v-field__input),
 .tipo-select :deep(.v-select__selection) {
-  color: white !important;
+  font-weight: 500;
 }
 
 .tipo-select :deep(.v-field__append-inner .v-icon) {
-  color: white !important;
+  color: #1976d2;
 }
 
 /* ===== TABELA PRINCIPAL ===== */
@@ -1162,29 +1342,29 @@ onMounted(() => {
 }
 
 .data-table-custom {
-  background-color: #fafafa;
+  font-size: 0.95rem;
 }
 
 .data-table-custom :deep(.v-data-table__wrapper) {
-  border-radius: 0;
+  overflow-x: auto;
 }
 
 /* Headers da tabela */
 .data-table-custom :deep(.v-data-table-header th) {
   background-color: #37474f !important;
   color: white !important;
-  font-weight: 600;
-  border-bottom: 2px solid #263238;
-  padding: 16px 12px;
-  text-align: left !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px !important;
 }
 
 .data-table-custom :deep(.v-data-table-header th .v-data-table-header__content) {
-  color: white;
-  font-size: 0.9rem;
+  color: white !important;
+  font-weight: 600 !important;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  justify-content: flex-start !important;
+  font-size: 0.95rem !important;
 }
 
 /* Toolbar da tabela */
@@ -1203,23 +1383,68 @@ onMounted(() => {
 /* ===== LINHAS E CÉLULAS DA TABELA ===== */
 .table-row-hover:hover {
   background-color: #e3f2fd !important;
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .table-row-hover:nth-child(even) {
-  background-color: #f8f9fa;
+  background-color: #fafafa;
 }
 
 .table-row-hover:nth-child(odd) {
-  background-color: #ffffff;
+  background-color: white;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: #e8f5e8 !important;
+  transform: scale(1.002);
+  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .table-cell {
   padding: 12px 16px;
-  border-bottom: 1px solid #e0e0e0;
   vertical-align: middle;
-  text-align: left !important;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* ===== TOOLTIP DE OPERADORES ===== */
+.operadores-chip {
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.operadores-chip:hover {
+  transform: scale(1.05);
+}
+
+.operadores-tooltip {
+  background-color: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  max-width: 250px;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 4px;
+}
+
+.operador-item {
+  margin-bottom: 4px;
+  color: #f5f5f5;
+  font-size: 0.875rem;
+}
+
+.operador-item:last-child {
+  margin-bottom: 0;
 }
 
 /* ===== TIPOS DE VALORES NAS CÉLULAS ===== */
@@ -1227,65 +1452,58 @@ onMounted(() => {
   font-family: 'Courier New', monospace;
   font-weight: 600;
   color: #1976d2;
-  text-align: left !important;
-  display: block;
+  text-align: right;
 }
 
 .id-value {
   font-family: 'Courier New', monospace;
-  font-weight: 600;
-  color: #9c27b0;
-  text-align: left !important;
-  display: block;
+  font-weight: 500;
+  color: #757575;
+  font-size: 0.9em;
 }
 
 .date-value {
   font-weight: 500;
   color: #388e3c;
-  text-align: left !important;
 }
 
 .time-value {
   font-family: 'Courier New', monospace;
   font-weight: 500;
   color: #ff9800;
-  text-align: left !important;
 }
 
 .maquinario-value {
   font-weight: 500;
-  color: #673ab7;
-  text-align: left !important;
+  color: #9c27b0;
 }
 
 .text-value {
   color: #424242;
-  text-align: left !important;
 }
 
 /* ===== ESTADOS ESPECIAIS DA TABELA ===== */
 .no-data-container {
+  padding: 4rem 2rem;
   text-align: center;
-  padding: 60px 20px;
 }
 
 .loading-container {
+  padding: 4rem 2rem;
   text-align: center;
-  padding: 60px 20px;
 }
 
 /* ===== MODAL DE CONFIGURAÇÃO DE COLUNAS ===== */
 .column-config-modal {
   border-radius: 16px;
   overflow: hidden;
-  max-height: 90vh;
+  max-height: 100vh;
 }
 
 /* Header do Modal */
 .modal-header {
   background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
   color: white;
-  position: relative;
 }
 
 .modal-header::before {
@@ -1295,21 +1513,22 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M0 0h40v40H0V0zm10 10h20v20H10V10z'/%3E%3C/g%3E%3C/svg%3E");
+  background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%);
+  background-size: 20px 20px;
 }
 
 .modal-title {
-  font-size: 1.3rem;
+  color: white;
   font-weight: 600;
-  margin: 0;
-  position: relative;
+  font-size: 1.25rem;
   z-index: 1;
+  position: relative;
 }
 
 .close-btn {
   color: white !important;
-  position: relative;
   z-index: 1;
+  position: relative;
 }
 
 /* Conteúdo do Modal */
@@ -1319,17 +1538,16 @@ onMounted(() => {
 
 .section-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  font-size: 1.1rem;
+  color: #37474f;
   margin-bottom: 1rem;
-  flex-wrap: wrap;
-  gap: 12px;
 }
 
 .section-stats {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .section-actions {
@@ -1346,12 +1564,11 @@ onMounted(() => {
 
 .column-item {
   background: white;
-  border: 2px solid transparent;
+  border: 2px solid #e0e0e0;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: move;
-  user-select: none;
+  padding: 16px;
+  cursor: grab;
+  transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
 }
@@ -1359,36 +1576,34 @@ onMounted(() => {
 .column-item::before {
   content: '';
   position: absolute;
-  top: 0;
   left: 0;
+  top: 0;
+  bottom: 0;
   width: 4px;
-  height: 100%;
-  background: #e0e0e0;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
 }
 
 .column-item.column-visible::before {
-  background: linear-gradient(180deg, #4caf50 0%, #388e3c 100%);
+  background-color: #4caf50;
 }
 
 .column-item.column-hidden::before {
-  background: linear-gradient(180deg, #f44336 0%, #d32f2f 100%);
+  background-color: #f44336;
 }
 
 .column-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: #2196f3;
+  border-color: #1976d2;
+  box-shadow: 0px 4px 16px rgba(25, 118, 210, 0.2);
 }
 
 .column-item.column-visible {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fff8 100%);
-  border-color: #c8e6c9;
+  border-color: #4caf50;
+  background-color: #f1f8e9;
 }
 
 .column-item.column-hidden {
-  background: linear-gradient(135deg, #ffffff 0%, #fff8f8 100%);
-  border-color: #ffcdd2;
+  border-color: #f44336;
+  background-color: #fce4ec;
   opacity: 0.7;
 }
 
@@ -1396,34 +1611,32 @@ onMounted(() => {
 .column-item-content {
   display: flex;
   align-items: center;
-  padding: 16px;
-  gap: 12px;
+  gap: 1rem;
+  position: relative;
 }
 
 .drag-handle {
+  cursor: grab;
+  color: #757575;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background-color: #f5f5f5;
-  cursor: grab;
-  transition: all 0.2s ease;
 }
 
 .drag-handle:hover {
-  background-color: #e0e0e0;
-  transform: scale(1.1);
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #424242;
 }
 
 .drag-handle:active {
   cursor: grabbing;
-  background-color: #2196f3;
 }
 
 .drag-handle:active .v-icon {
-  color: white !important;
+  transform: scale(1.1);
 }
 
 .column-checkbox {
@@ -1438,15 +1651,13 @@ onMounted(() => {
 .column-title {
   font-weight: 600;
   color: #37474f;
-  font-size: 0.9rem;
-  line-height: 1.2;
+  font-size: 1rem;
 }
 
 .column-key {
-  font-size: 0.75rem;
-  color: #78909c;
+  color: #757575;
+  font-size: 0.875rem;
   font-family: 'Courier New', monospace;
-  margin-top: 2px;
 }
 
 .column-status {
@@ -1454,15 +1665,15 @@ onMounted(() => {
 }
 
 .status-chip {
-  font-size: 0.75rem !important;
-  height: 24px !important;
+  font-weight: 600;
+  font-size: 0.75rem;
 }
 
 .order-indicator {
-  flex-shrink: 0;
-  width: 32px;
-  display: flex;
-  justify-content: center;
+  background-color: #4caf50;
+  color: white;
+  font-weight: bold;
+  min-width: 24px;
 }
 
 /* ===== ANIMAÇÕES E TRANSIÇÕES ===== */
@@ -1473,12 +1684,12 @@ onMounted(() => {
 
 .column-item-enter-from {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateY(-10px);
 }
 
 .column-item-leave-to {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateY(10px);
 }
 
 .column-item-move {
@@ -1501,24 +1712,63 @@ onMounted(() => {
 /* ===== ESTADOS ESPECIAIS E ACESSIBILIDADE ===== */
 .column-item[draggable="true"]:active {
   cursor: grabbing;
-  transform: rotate(5deg) scale(1.05);
+  transform: rotate(2deg);
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3);
   z-index: 1000;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
 .column-item:focus-within {
-  outline: 2px solid #2196f3;
+  outline: 2px solid #1976d2;
   outline-offset: 2px;
 }
 
 .v-btn:focus-visible {
-  outline: 2px solid #2196f3;
+  outline: 2px solid #1976d2;
   outline-offset: 2px;
+}
+
+/* Container com scroll lateral */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Células customizadas */
+.cell-content {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+}
+
+/* Chips para múltiplos valores */
+.v-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Estados da tabela */
+.data-table-custom :deep(tbody tr:hover) {
+  background-color: #e3f2fd !important;
+}
+
+.data-table-custom :deep(.v-data-table__th) {
+  background-color: #37474f !important;
+  color: white !important;
+}
+
+/* Bordas e separadores */
+.border-b {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.border-t {
+  border-top: 1px solid #e0e0e0;
 }
 
 /* ===== RESPONSIVIDADE ===== */
 @media (max-width: 768px) {
-  /* Header da tabela */
   .table-header .v-row {
     flex-direction: column;
     gap: 1rem;
@@ -1532,7 +1782,6 @@ onMounted(() => {
     max-width: 100% !important;
   }
   
-  /* Tabela */
   .data-table-custom {
     font-size: 0.85rem;
   }
@@ -1541,37 +1790,113 @@ onMounted(() => {
     padding: 8px 12px;
   }
   
-  /* Modal */
-  .column-config-modal {
-    margin: 8px;
-    max-height: 95vh;
-  }
-  
-  .modal-header {
-    padding: 16px !important;
-  }
-  
-  .config-content {
-    padding: 16px !important;
-  }
-  
   .column-item-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .drag-handle {
+    order: -1;
+    align-self: flex-end;
+  }
+  
+  .column-status {
+    align-self: flex-end;
+  }
+  
+  .section-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .section-actions .v-btn {
+    width: 100%;
+  }
+  
+  .modal-title {
+    font-size: 1.1rem;
+  }
+  
+  .column-config-modal {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
+  
+  .tipo-select {
+    min-width: 150px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-toolbar {
+    padding: 12px !important;
+  }
+  
+  .table-title {
+    font-size: 1rem;
+  }
+  
+  .cell-content {
+    font-size: 0.8rem;
+  }
+  
+  .v-chip {
+    font-size: 0.7rem !important;
+  }
+  
+  .column-item {
     padding: 12px;
-    gap: 8px;
+  }
+  
+  .section-stats {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
+
+/* ===== MELHORIAS DE PERFORMANCE ===== */
+.table-container {
+  contain: layout style;
+}
+
+.column-item {
+  contain: layout style;
+}
+
+.data-table-custom :deep(.v-data-table__wrapper) {
+  contain: layout style;
+}
+
+/* ===== TEMA ESCURO (caso necessário) ===== */
+@media (prefers-color-scheme: dark) {
+  .table-header {
+    background: linear-gradient(135deg, #263238 0%, #37474f 100%);
+    border-color: #424242;
+  }
+  
+  .column-item {
+    background: #303030;
+    border-color: #424242;
+    color: white;
+  }
+  
+  .column-item.column-visible {
+    background-color: #1b5e20;
+    border-color: #4caf50;
+  }
+  
+  .column-item.column-hidden {
+    background-color: #b71c1c;
+    border-color: #f44336;
   }
   
   .column-title {
-    font-size: 0.85rem;
+    color: white;
   }
   
   .column-key {
-    font-size: 0.7rem;
-  }
-  
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+    color: #bdbdbd;
   }
 }
 </style>

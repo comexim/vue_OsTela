@@ -1,7 +1,7 @@
 <template>
     <v-container class="container">
       <v-card>
-        <v-card-title class="d-flex align-center justify-space-between pa-4">
+        <v-card-title class="d-flex align-center justify-space-between">
           <div class="d-flex align-center ga-3">
             <h1 class="titulo-pagina">Produção e parada de maquinários</h1>
             <v-chip
@@ -139,7 +139,6 @@ const carregarMotivosParada = async () => {
   try {
     const response = await motivoParadaStore.getMotivoParada();
     motivosParada.value = response;
-    console.log('Motivos de parada carregados:', motivosParada.value);
   } catch (error) {
     console.error('Erro ao carregar motivos de parada:', error);
   }
@@ -200,11 +199,6 @@ const substituirCodigosMotivos = (dadosArray) => {
       const codigoOriginal = item[chaveMotivo];
       const descricao = motivoParadaStore.getDescricaoPorCodigo(codigoOriginal);
       item[chaveMotivo] = descricao;
-      
-      // Log para debug
-      if (descricao !== codigoOriginal) {
-        console.log(`Substituído: ${codigoOriginal} → ${descricao}`);
-      }
     }
   });
 };
@@ -213,15 +207,10 @@ const substituirCodigosMotivos = (dadosArray) => {
 const gerarHeaders = (dadosArray, labelMap = []) => {
   if (!dadosArray || dadosArray.length === 0) return [];
   
-  console.log('gerarHeaders - dadosArray length:', dadosArray.length);
-  console.log('gerarHeaders - labelMap:', labelMap);
-  
   // Se tiver labelMap, usa ele para definir as colunas
   if (labelMap && Array.isArray(labelMap) && labelMap.length > 0) {
-    console.log('Usando labelMap para gerar headers');
     const headersFromLabelMap = labelMap
       .filter(item => {
-        console.log(`Campo ${item.key}: exibe = ${item.exibe}`);
         return item.exibe === 'S';
       })
       .map(item => ({
@@ -231,11 +220,9 @@ const gerarHeaders = (dadosArray, labelMap = []) => {
         sortable: true
       }));
     
-    console.log('Headers gerados do labelMap:', headersFromLabelMap);
     return headersFromLabelMap;
   }
   
-  console.log('Usando fallback para gerar headers');
   // Fallback: se não tiver labelMap, usa o método anterior
   const primeiroItem = dadosArray[0];
   return Object.keys(primeiroItem).map(key => ({
@@ -265,10 +252,7 @@ const onFilter = async () => {
       usuario: localStorage.getItem('user')
     };
 
-    console.log('Parâmetros enviados para a API:', params);
-
     const response = await prodParStore.prodPar(params);
-    console.log('Dados recebidos da API:', response);
     
     if (Array.isArray(response)) {
       dados.value = response;
@@ -283,9 +267,6 @@ const onFilter = async () => {
       substituirCodigosMotivos(dados.value);
       headers.value = gerarHeaders(response.listaMov, response.labelMap);
       labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
-      console.log('LabelMap recebido:', response.labelMap);
-      console.log('LabelMap completo armazenado:', labelMapCompleto.value);
-      console.log('Headers gerados:', headers.value);
     } else if (response && Array.isArray(response.data)) {
       dados.value = response.data;
       // Substitui códigos pelos nomes dos motivos
@@ -298,9 +279,6 @@ const onFilter = async () => {
       substituirCodigosMotivos(dados.value);
       headers.value = gerarHeaders(response.listaMov, response.labelMap);
       labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
-      console.log('LabelMap recebido:', response.labelMap);
-      console.log('LabelMap completo armazenado:', labelMapCompleto.value);
-      console.log('Headers gerados:', headers.value);
     } else {
       console.warn('Formato de dados inesperado:', response);
       dados.value = [];
@@ -322,7 +300,6 @@ const onFilter = async () => {
 onMounted(() => {
   carregarMaquinarios();
   carregarMotivosParada();
-  console.log('Página carregada. Use os filtros para buscar dados.');
 });
 </script>
 
@@ -336,6 +313,7 @@ h1.titulo-pagina {
 
 .container {
   min-width: 1300px;
+  margin-top: -30px;
 }
 
 /* Card principal */

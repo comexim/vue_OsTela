@@ -49,40 +49,6 @@
           class="mb-3"
         ></v-text-field>
 
-        <!-- Silo -->
-        <v-autocomplete
-          v-model="silo"
-          label="Silo"
-          prepend-icon="mdi-silo"
-          :items="silosOptions"
-          :custom-filter="siloFilter"
-          item-title="label"
-          item-value="value"
-          variant="outlined"
-          density="compact"
-          class="mb-3"
-          clearable
-          :loading="loadingSilos"
-          autocomplete="off"
-          no-data-text="Nenhum silo encontrado"
-        >
-          <template v-slot:item="{ props, item }">
-            <v-list-item v-bind="props">
-              <template v-slot:title>
-                <div class="d-flex justify-space-between align-center">
-                  <span class="font-weight-bold">{{ item.raw.siloCod }}</span>
-                  <v-chip size="x-small" color="primary" variant="flat">
-                    {{ item.raw.siloLote || 'Vazio' }}
-                  </v-chip>
-                </div>
-              </template>
-              <template v-slot:subtitle>
-                <span class="text-caption">{{ item.raw.siloSetor }} - {{ item.raw.siloSaca }} sacas</span>
-              </template>
-            </v-list-item>
-          </template>
-        </v-autocomplete>
-
         <!-- Linha -->
         <v-select
           v-model="linha"
@@ -182,7 +148,6 @@ const siloAppStore = siloApp();
 // Estados de loading
 const loadingLinhas = ref(false);
 const loadingFilter = ref(false);
-const loadingSilos = ref(false);
 
 // Variável para armazenar o total de sacas da última pesquisa
 const totalSacasUltimaPesquisa = ref(0);
@@ -210,12 +175,9 @@ const op = ref('');
 const lote = ref('');
 const tagBag = ref('');
 const endereco = ref('');
-const silo = ref('');
 const linha = ref(null);
 const selectedCheckboxes = ref([]);
 const linhasOptions = ref([]);
-const silosOptions = ref([]);
-const silosData = ref([]);
 const showTable = ref(false);
 const isTableMinimized = ref(false);
 const filteredData = ref([]);
@@ -228,16 +190,6 @@ const headers = [
 const cadAuxStore = cadAux();
 
 const emit = defineEmits(['filtrado', 'update-table']);
-
-// Função customizada de filtro para buscar por código do silo ou lote
-function siloFilter(itemTitle, queryText, item) {
-    const query = queryText.toLowerCase();
-    const siloCod = item.raw.siloCod?.toLowerCase() || '';
-    const siloLote = item.raw.siloLote?.toLowerCase() || '';
-    
-    // Busca tanto pelo código do silo quanto pelo lote
-    return siloCod.includes(query) || siloLote.includes(query);
-}
 
 async function loadCadAux() {
     loadingLinhas.value = true;
@@ -255,32 +207,8 @@ async function loadCadAux() {
     }
 }
 
-async function loadSilos() {
-    loadingSilos.value = true;
-    try {
-        const response = await siloAppStore.siloApp();
-        if (response && response.listaSilos) {
-            silosData.value = response.listaSilos;
-            silosOptions.value = response.listaSilos.map(silo => ({
-                label: `${silo.siloCod} - ${silo.siloLote || 'Vazio'}`,
-                value: silo.siloCod,
-                siloCod: silo.siloCod,
-                siloLote: silo.siloLote,
-                siloSetor: silo.siloSetor,
-                siloSaca: silo.siloSaca
-            }));
-        }
-    } catch (error) {
-        console.error('Erro ao carregar silos:', error);
-        silosOptions.value = [];
-    } finally {
-        loadingSilos.value = false;
-    }
-}
-
 onMounted(() => {
     loadCadAux();
-    loadSilos();
 });
 
 function toggleTable() {
@@ -292,7 +220,6 @@ function limparFiltros() {
     lote.value = '';
     tagBag.value = '';
     endereco.value = '';
-    silo.value = '';
     linha.value = null;
     selectedCheckboxes.value = [];
     showTable.value = false;
@@ -323,7 +250,6 @@ async function onFilter() {
             lote: lote.value,
             tagBag: tagBag.value,
             endereco: endereco.value,
-            silo: silo.value,
             linha: Array.isArray(linha.value) && linha.value.length > 0 ? linha.value.join(',') : '',
             // Para cada checkbox, envia True/False
             ...Object.fromEntries(
@@ -338,10 +264,41 @@ async function onFilter() {
 
         const response = await enderColorStore.enderColor(formData);
         
+        // Se houver lote pesquisado, também busca silos com esse lote
+        let silosComLote = [];
+        if (lote.value) {
+            try {
+                const silosResponse = await siloAppStore.siloApp();
+                if (silosResponse && silosResponse.listaSilos) {
+                    // Filtra silos que contêm o lote pesquisado
+                    silosComLote = silosResponse.listaSilos.filter(silo => 
+                        silo.siloLote && silo.siloLote.toLowerCase().includes(lote.value.toLowerCase())
+                    );
+                    console.log('Silos encontrados com o lote:', silosComLote);
+                }
+            } catch (error) {
+                console.error('Erro ao buscar silos:', error);
+            }
+        }
+        
         // Se houver lote pesquisado e não houver checkboxes marcados, soma todos os bagKgAtu do listaBag
         const temFiltroBasico = op.value || lote.value || endereco.value;
         if (temFiltroBasico && selectedCheckboxes.value.length === 0) {
             let enriched = Array.isArray(response) ? response : [];
+            
+            // Adiciona silos aos dados filtrados se houver (silos aparecem primeiro)
+            if (silosComLote.length > 0) {
+                // Converte silos para o formato compatível com a estrutura de dados
+                const silosFormatados = silosComLote.map(silo => ({
+                    enderCod: silo.siloCod,
+                    bagLote: silo.siloLote,
+                    tipo: 'SILO',
+                    siloSetor: silo.siloSetor,
+                    siloSaca: silo.siloSaca
+                }));
+                enriched = [...silosFormatados, ...enriched];
+            }
+            
             filteredData.value = enriched;
             // Se pesquisou por lote, busca todos os bags desse lote e soma os bagKgAtu
             if (lote.value) {
@@ -357,7 +314,7 @@ async function onFilter() {
                 // Caso não seja pesquisa por lote, mantém lógica antiga
                 totalSacasUltimaPesquisa.value = enriched.reduce((acc, item) => acc + ((item.bagKgAtu || 0) / 59), 0);
             }
-            console.log('Resposta da API (com sacas):', enriched);
+            console.log('Resposta da API (com sacas e silos):', enriched);
             console.log('Total de sacas calculado:', totalSacasUltimaPesquisa.value);
         } else {
             filteredData.value = Array.isArray(response) ? response : [];
