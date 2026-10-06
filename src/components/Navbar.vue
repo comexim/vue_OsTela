@@ -1,6 +1,6 @@
 <template>
-	<v-navigation-drawer v-model="isDrawerOpen" permanent :scrim="false">
-		<v-list>
+  <v-navigation-drawer v-model="isDrawerOpen" :scrim="false" width="320" app>
+		<v-list v-model:opened="openedGroups">
 			<v-list-subheader>OSTela</v-list-subheader>
 
 			<v-list-group value="Movimentos">
@@ -58,22 +58,37 @@
 					class="text-left"
           @click="navigateTo(title)"
 				/>
+				
+				<v-list-group v-if="Conciliacao.length" value="Conciliação" sub-group>
+					<template v-slot:activator="{ props }">
+						<v-list-item
+							v-bind="props"
+							title="Conciliação"
+							prepend-icon="mdi-file-compare"
+							class="text-left"
+						/>
+					</template>
+					<v-list-item
+						v-for="([title], i) in Conciliacao"
+						:key="i"
+						:title="title"
+						:value="title"
+						class="text-left pl-8"
+						@click="navigateTo(title)"
+					/>
+				</v-list-group>
 			</v-list-group>
 		</v-list>
 	</v-navigation-drawer>
 
 	<v-navigation-drawer
         v-model="wms"
-        :location="isRightDrawer ? 'end' : 'start'"
         temporary
         :scrim="false"
-        width="400"
+        width="380"
       >
         <v-card>
           <v-card-title class="d-flex align-center">
-            <v-btn icon @click="toggleDrawerSide">
-              <v-icon>{{ isRightDrawer ? 'mdi-arrow-left' : 'mdi-arrow-right' }}</v-icon>
-            </v-btn>
             <v-spacer></v-spacer>
             <v-select
               v-model="selectedTipo"
@@ -81,29 +96,28 @@
               label="Tipo"
               variant="outlined"
               density="compact"
-              style="max-width: 150px;"
-              class="mx-15"
+              class="wms-type-select me-2"
             ></v-select>
-            <v-btn icon @click="wms = false">
+            <v-btn icon size="small" @click="wms = false">
               <v-icon>mdi-close</v-icon>
             </v-btn>
           </v-card-title>
           <v-card-text class="pa-0">
-            <WmsComponent :tipo="selectedTipo" />
+            <WmsComponent :tipo="selectedTipo" @filtrado="handleWMSFiltrado" />
           </v-card-text>
         </v-card>
       </v-navigation-drawer>
 
 	<v-app-bar flat class="border-b">
 		<v-app-bar-nav-icon @click="isDrawerOpen = !isDrawerOpen" />
-		<v-btn v-if="isMapaPage && dataUser" variant="tonal" color="blue" @click="wms = !wms">WMS</v-btn>
+		<v-btn v-if="isMapaPage" variant="tonal" color="blue" @click="wms = !wms">WMS</v-btn>
 		<template #append>
 			<v-menu>
 				<template v-slot:activator="{ props }">
 					<v-avatar v-bind="props">
 						<v-img
 							cover
-							src="https://i.pinimg.com/originals/92/4a/56/924a567899367737564d02d562a91199.jpg" />
+							src="https://pluspng.com/img-png/user-png-icon-big-image-png-2240.png" />
 					</v-avatar>
 				</template>
 				<v-card min-width="200px">
@@ -118,7 +132,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUsers } from '../stores/Auth/AuthLogin';
 import WmsComponent from '../pages/consultas/components/wms.vue';
@@ -126,6 +140,7 @@ import WmsComponent from '../pages/consultas/components/wms.vue';
 const router = useRouter();
 const nomeUsuario = ref('');
 const dataUser = ref(localStorage.getItem('data') === 'true');
+const userDireitos = ref({});
 
 onMounted(() => {
   try {
@@ -137,8 +152,13 @@ onMounted(() => {
     } else {
       nomeUsuario.value = 'Usuário';
     }
+
+    // Carrega os direitos do usuário
+    const direitosStr = localStorage.getItem('userDireitos');
+    if (direitosStr) {
+      userDireitos.value = JSON.parse(direitosStr);
+    }
   } catch (e) {
-    console.error("Erro ao acessar o usuário do localStorage:", e);
     nomeUsuario.value = 'Usuário';
   }
 });
@@ -151,32 +171,118 @@ async function logout() {
 
 const isDrawerOpen = ref(false);
 const wms = ref(false);
-const isRightDrawer = ref(false);
+const openedGroups = ref([]); // Controla quais grupos estão abertos
 
 // Variáveis para o componente WMS
 const selectedTipo = ref(null);
-const tipoOptions = ['Remoção','Remoção OP', 'Despejo'];
 
-const Movimentos = [
-  ['Ordem de Serviço'],
-  ['Guia de entrada'],
-  ['OS X Moega'],
-  ['Apontamento Imãs'],
-];
+// Computed para filtrar tipos baseado nas permissões
+const tipoOptions = computed(() => {
+  const options = ['Filtro']; // Filtro sempre disponível
+  
+  // Adiciona as opções privadas apenas se o usuário tiver permissão
+  if (hasPermission('MotDirRem')) {
+    options.unshift('Remoção Lote', 'Remoção OP', 'Despejo');
+  }
+  
+  return options;
+});
 
-const Consultas = [
-  ['Mapa WMS'],
-];
+// Função para verificar se o usuário tem permissão
+const hasPermission = (permission) => {
+  return userDireitos.value[permission] === 'S';
+};
 
-const Relatorios = [
-  ['Log Movimentações'],
-  ['Produção e Parada por maquinário'],
-  ['Relatório Imas'],
-];
+// Filtra os itens de Movimentos baseado nas permissões
+const Movimentos = computed(() => {
+  const items = [];
+  
+  if (hasPermission('MotDirOS')) {
+    items.push(['Ordem de Serviço']);
+  }
+  
+  // Guia de entrada não tem restrição específica mencionada, então sempre exibe
+  items.push(['Guia de entrada']);
+  
+  if (hasPermission('MotDirOsMoe')) {
+    items.push(['OS X Moega']);
+  }
+  
+  if (hasPermission('MotDirImas')) {
+    items.push(['Apontamento Imãs']);
+  }
+  
+  if (hasPermission('MotDirSilo')) {
+    items.push(['Zerar silos']);
+  }
+  
+  return items;
+});
+
+const Consultas = computed(() => {
+  const items = [['Mapa WMS']];
+
+  if (hasPermission('MotAdm')) {
+    items.push(['Dashboard']);
+  }
+
+  return items;
+});
+
+const Relatorios = computed(() => {
+  const items = [
+    ['Log Movimentações'],
+    ['Relatório Imas'],
+    ['Monitoramento de Produção']
+  ];
+
+  if (hasPermission('MotDirImas')) {
+    items.splice(1, 0, ['Produção e Parada por maquinário']);
+  }
+
+  if (hasPermission('MotAdm')) {
+    items.splice(items.length - 1, 0, ['Saldo Silos (WMS X SUP)']);
+  }
+
+  return items;
+});
+
+const Conciliacao = computed(() => {
+  return hasPermission('MotAdm') ? [['Produção por data']] : [];
+});
 
 const isMapaPage = computed(() => router.currentRoute.value.path === '/consultas/mapa');
 
+// Watch para garantir que apenas um menu principal fique aberto por vez
+watch(openedGroups, (newValue, oldValue) => {
+  // Lista dos menus principais
+  const menusPrincipais = ['Movimentos', 'Consultas', 'Relatórios'];
+  
+  // Filtra apenas os menus principais que estão abertos
+  const principaisAbertos = newValue.filter(item => menusPrincipais.includes(item));
+  
+  // Se mais de um menu principal estiver aberto, mantém apenas o último
+  if (principaisAbertos.length > 1) {
+    const ultimoPrincipal = principaisAbertos[principaisAbertos.length - 1];
+    // Mantém o último menu principal e seus submenus
+    openedGroups.value = newValue.filter(item => 
+      item === ultimoPrincipal || !menusPrincipais.includes(item)
+    );
+  }
+});
+
+// Watch para monitorar abertura/fechamento do WMS
+watch(wms, (newValue) => {
+  // Emitir evento global para o mapa
+  window.dispatchEvent(new CustomEvent('wms-toggle', { 
+    detail: { isOpen: newValue } 
+  }));
+});
+
 function navigateTo(title) {
+  // Fecha o drawer antes de navegar
+  isDrawerOpen.value = false;
+  
   if (title === 'Mapa WMS') {
     router.push('/consultas/mapa');
   }
@@ -201,14 +307,38 @@ function navigateTo(title) {
   if (title === 'Ordem de Serviço') {
     router.push('/movimentos/ordemServico')
   }
+  if (title === 'Zerar silos') {
+    router.push('/movimentos/silos')
+  }
+  if (title === 'Saldo Silos (WMS X SUP)') {
+    router.push('/relatorios/saldoSiloWMSXSUP')
+  }
+  if (title === 'Produção por data') {
+    router.push('/relatorios/producaoData')
+  }
+  if (title === 'Dashboard') {
+    router.push('/consultas/dashboard')
+  }
+  if (title ===  'Monitoramento de Produção') {
+    router.push('/relatorios/producaoDashboard')
+  }
 }
 
-function toggleDrawerSide() {
-  isRightDrawer.value = !isRightDrawer.value;
-}
+// Função para lidar com filtrado do WMS
+const handleWMSFiltrado = (enderCodList) => {
+  // Emitir evento global para que o mapa possa escutar
+  window.dispatchEvent(new CustomEvent('wms-filtrado', { 
+    detail: { enderCods: enderCodList } 
+  }));
+};
 </script>
 
 <style scoped>
+.wms-type-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 220px;
+}
 .navbar {
   position: fixed;
   top: 0;

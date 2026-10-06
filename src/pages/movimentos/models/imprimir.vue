@@ -1,7 +1,7 @@
 <template>
   <v-dialog v-model="dialogVisible" max-width="1200px" persistent>
     <v-card>
-      <v-card-title class="pa-1 bg-primary text-white d-flex align-center">
+      <v-card-title class="pa-1 bg-primary text-white d-flex align-center sticky-header">
         <h4>Imprimir Ordem de Serviço</h4>
         <v-spacer></v-spacer>
           <v-btn icon variant="text" @click="fecharModal" size="small">
@@ -39,28 +39,44 @@
             </div>
           </div>
 
-          <!-- Tabelas separadas por lote -->
-          <div v-for="(grupo, lote) in itensAgrupadosPorLote" :key="lote" class="lote-group">
-            <!-- Cabeçalho do lote -->
+          <!-- Cabeçalho único da tabela (repetido apenas no início de cada página) -->
+          <table class="print-table main-table-header">
+            <thead class="table-header-main">
+              <tr>
+                <th>IT</th>
+                <th>EMP</th>
+                <th>LOTE</th>
+                <th>TAG</th>
+                <th>
+                  <button
+                    type="button"
+                    class="origem-sort-button"
+                    :class="{ 'origem-sort-button--active': ordenarPorOrigem }"
+                    :aria-pressed="ordenarPorOrigem"
+                    :title="ordenarPorOrigem
+                      ? 'Remover ordenação por origem'
+                      : 'Ordenar lotes pela menor origem'"
+                    @click="ordenarPorOrigem = !ordenarPorOrigem"
+                  >
+                    ORIGEM
+                    <v-icon size="14">
+                      {{ ordenarPorOrigem ? 'mdi-arrow-up' : 'mdi-sort' }}
+                    </v-icon>
+                  </button>
+                </th>
+                <th>DESTINO</th>
+                <th>DEP. EM</th>
+                <th>OBSERVAÇÃO</th>
+                <th>QTD.ORDEM</th>
+                <th>ATENDIDA</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+          </table>
 
-
-            <!-- Tabela do lote -->
-            <table class="print-table">
-              <thead>
-                <tr>
-                  <th>IT</th>
-                  <th>EMP</th>
-                  <th>LOTE</th>
-                  <th>TAG</th>
-                  <th>ORIGEM</th>
-                  <th>DESTINO</th>
-                  <th>DEP. EM</th>
-                  <th>OBSERVAÇÃO</th>
-                  <th>QTD.ORDEM</th>
-                  <th>ATENDIDA</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
+          <!-- Tabelas separadas por lote (sem cabeçalho) -->
+          <div v-for="grupo in itensAgrupadosPorLoteParaImpressao" :key="grupo.lote" class="lote-group">
+            <table class="print-table lote-table">
               <tbody>
                 <tr v-for="item in grupo.itens" :key="item.itOSItem">
                   <td>{{ item.itOSItem }}</td>
@@ -71,8 +87,8 @@
                   <td>{{ item.itOsDestino }}</td>
                   <td>{{ item.itOSStatus === 'AT' ? item.itOsDestinoDepEm : '-' }}</td>
                   <td>{{ item.itOsObs || '-' }}</td>
-                  <td>{{ formatarPeso(item.itOsPeso) }}</td>
-                  <td>{{ item.itOSStatus === 'AT' ? formatarPeso(item.itOsPeso) : '0,00' }}</td>
+                  <td>{{ formatarPeso(item.itOsPeso/59) }}</td>
+                  <td>{{ item.itOSStatus === 'AT' ? formatarPeso(item.itOsPeso/59) : '0,00' }}</td>
                   <td>{{ item.itOSStatus }}</td>
                 </tr>
               </tbody>
@@ -81,29 +97,32 @@
             <!-- Subtotal do lote -->
             <div class="subtotal-lote">
               <div class="subtotal-info">
-                <span><strong>Subtotal do {{ lote }}:</strong></span>
+                <span><strong>Subtotal do {{ grupo.lote }}:</strong></span>
                 <span><strong>Itens:</strong> {{ grupo.totalItens }}</span>
-                <span><strong>Quantidade:</strong> {{ formatarPeso(grupo.totalQuantidade) }} kg</span>
-                <span><strong>Atendida:</strong> {{ formatarPeso(grupo.totalAtendida) }} kg</span>
+                <span><strong>Quantidade:</strong> {{ formatarPeso(grupo.totalQuantidade/59) }} sacas</span>
+                <span><strong>Atendida:</strong> {{ formatarPeso(grupo.totalAtendida/59) }} sacas</span>
               </div>
             </div>
           </div>
 
           <!-- Rodapé com totais -->
-      <div class="report-footer mt-4" ref="reportFooter">
+      <div class="report-footer mt-3" ref="reportFooter">
             <div class="totals-section">
               <div class="totals-items">
                 <div class="total-item totals-title-inline">
                   <strong>Total Geral da Guia:</strong>
                 </div>
                 <div class="total-item">
-                  <strong>Total de Itens:</strong> {{ itensOrdenados.length }}
+                  <strong>Total de Itens:</strong> {{ totalItensParaImpressao }}
                 </div>
                 <div class="total-item">
-                  <strong>Quantidade Total:</strong> {{ formatarPeso(totalQuantidade) }} kg
+                  <strong>Quantidade Total:</strong> {{ formatarPeso(totalQuantidadeParaImpressao) }} sacas
                 </div>
                 <div class="total-item">
-                  <strong>Quantidade Atendida:</strong> {{ formatarPeso(totalAtendida) }} kg
+                  <strong>Quantidade Atendida:</strong> {{ formatarPeso(totalAtendidaParaImpressao/59) }} sacas
+                </div>
+                <div class="total-item">
+                  <strong>Quantidade Restante:</strong> {{ formatarPeso(totalQuantidadeParaImpressao - totalAtendidaParaImpressao/59) }} sacas
                 </div>
               </div>
             </div>
@@ -155,7 +174,11 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 
-// Props
+/* ========================================
+   CAMADA DE CONFIGURAÇÃO E INTERFACE
+======================================== */
+
+// Props do componente
 const props = defineProps({
   modelValue: {
     type: Boolean,
@@ -171,21 +194,20 @@ const props = defineProps({
   }
 });
 
-// Emits
+// Eventos emitidos pelo componente
 const emit = defineEmits(['update:modelValue']);
 
-// Data local
+/* ========================================
+   CAMADA DE ESTADO REATIVO
+======================================== */
+
+// Estados locais do componente
 const dialogVisible = ref(props.modelValue);
 const printArea = ref(null);
 const reportFooter = ref(null);
-// Função para rolar até o rodapé do relatório
-const scrollToFooter = () => {
-  if (reportFooter.value) {
-    reportFooter.value.scrollIntoView({ behavior: 'smooth' });
-  }
-};
+const ordenarPorOrigem = ref(false);
 
-// Watch para sincronizar o v-model
+// Watchers para sincronização de estado
 watch(() => props.modelValue, (newVal) => {
   dialogVisible.value = newVal;
 });
@@ -194,180 +216,15 @@ watch(dialogVisible, (newVal) => {
   emit('update:modelValue', newVal);
 });
 
-// Computed para obter dados da ordem
-const dadosOrdem = computed(() => {
-  if (!props.itemSelecionado.osid || !props.dadosCompletos.length) {
-    return {};
-  }
-  
-  // Pega o primeiro item da ordem para obter dados gerais
-  return props.dadosCompletos.find(item => item.osid === props.itemSelecionado.osid) || {};
-});
+/* ========================================
+   CAMADA DE FORMATAÇÃO DE DADOS
+======================================== */
 
-// Computed para número da ordem
-const numeroOrdem = computed(() => {
-  return dadosOrdem.value.opTck || props.itemSelecionado.opTck || 'N/A';
-});
-
-// Computed para filtrar e ordenar itens pelo mesmo osid
-const itensOrdenados = computed(() => {
-  if (!props.itemSelecionado.osid || !props.dadosCompletos.length) {
-    return [];
-  }
-
-  // Filtra todos os itens com o mesmo osid
-  const itensFiltrados = props.dadosCompletos.filter(item => 
-    item.osid === props.itemSelecionado.osid
-  );
-
-  // Ordena por itOSItem
-  return itensFiltrados.sort((a, b) => {
-    const itemA = parseInt(a.itOSItem) || 0;
-    const itemB = parseInt(b.itOSItem) || 0;
-    return itemA - itemB;
-  });
-});
-
-// Computed para agrupar itens por lote
-const itensAgrupadosPorLote = computed(() => {
-  const grupos = {};
-  
-  itensOrdenados.value.forEach(item => {
-    const lote = item.lote || 'Sem Lote';
-    
-    if (!grupos[lote]) {
-      grupos[lote] = {
-        itens: [],
-        totalItens: 0,
-        totalQuantidade: 0,
-        totalAtendida: 0
-      };
-    }
-    
-    grupos[lote].itens.push(item);
-    grupos[lote].totalItens++;
-    
-    const peso = parseFloat(item.itOsPeso) || 0;
-    grupos[lote].totalQuantidade += peso;
-    
-    if (item.itOSStatus === 'AT') {
-      grupos[lote].totalAtendida += peso;
-    }
-  });
-  
-  // Ordena os itens dentro de cada lote por itOSItem
-  Object.keys(grupos).forEach(lote => {
-    grupos[lote].itens.sort((a, b) => {
-      const itemA = parseInt(a.itOSItem) || 0;
-      const itemB = parseInt(b.itOSItem) || 0;
-      return itemA - itemB;
-    });
-  });
-  
-  return grupos;
-});
-
-// Computed para agrupar itens por lote (para impressão - sem itens ER)
-const itensAgrupadosPorLoteParaImpressao = computed(() => {
-  const grupos = {};
-  
-  // Filtra itens que não têm status 'ER'
-  const itensFiltrados = itensOrdenados.value.filter(item => item.itOSStatus !== 'ER');
-  
-  itensFiltrados.forEach(item => {
-    const lote = item.lote || 'Sem Lote';
-    
-    if (!grupos[lote]) {
-      grupos[lote] = {
-        itens: [],
-        totalItens: 0,
-        totalQuantidade: 0,
-        totalAtendida: 0
-      };
-    }
-    
-    grupos[lote].itens.push(item);
-    grupos[lote].totalItens++;
-    
-    const peso = parseFloat(item.itOsPeso) || 0;
-    grupos[lote].totalQuantidade += peso;
-    
-    if (item.itOSStatus === 'AT') {
-      grupos[lote].totalAtendida += peso;
-    }
-  });
-  
-  // Ordena os itens dentro de cada lote por itOSItem
-  Object.keys(grupos).forEach(lote => {
-    grupos[lote].itens.sort((a, b) => {
-      const itemA = parseInt(a.itOSItem) || 0;
-      const itemB = parseInt(b.itOSItem) || 0;
-      return itemA - itemB;
-    });
-  });
-  
-  return grupos;
-});
-
-// Computed para total de quantidade
-const totalQuantidade = computed(() => {
-  return itensOrdenados.value.reduce((total, item) => {
-    const peso = parseFloat(item.itOsPeso) || 0;
-    return total + peso;
-  }, 0);
-});
-
-// Computed para total atendida
-const totalAtendida = computed(() => {
-  return itensOrdenados.value.reduce((total, item) => {
-    if (item.itOSStatus === 'AT') {
-      const peso = parseFloat(item.itOsPeso) || 0;
-      return total + peso;
-    }
-    return total;
-  }, 0);
-});
-
-// Computed para total de quantidade (para impressão - sem itens ER)
-const totalQuantidadeParaImpressao = computed(() => {
-  return itensOrdenados.value
-    .filter(item => item.itOSStatus !== 'ER')
-    .reduce((total, item) => {
-      const peso = parseFloat(item.itOsPeso) || 0;
-      return total + peso;
-    }, 0);
-});
-
-// Computed para total atendida (para impressão - sem itens ER)
-const totalAtendidaParaImpressao = computed(() => {
-  return itensOrdenados.value
-    .filter(item => item.itOSStatus !== 'ER')
-    .reduce((total, item) => {
-      if (item.itOSStatus === 'AT') {
-        const peso = parseFloat(item.itOsPeso) || 0;
-        return total + peso;
-      }
-      return total;
-    }, 0);
-});
-
-// Computed para total de itens (para impressão - sem itens ER)
-const totalItensParaImpressao = computed(() => {
-  return itensOrdenados.value.filter(item => item.itOSStatus !== 'ER').length;
-});
-
-// Computed para data e hora de impressão
-const dataImpressao = computed(() => {
-  const agora = new Date();
-  return agora.toLocaleDateString('pt-BR');
-});
-
-const horaImpressao = computed(() => {
-  const agora = new Date();
-  return agora.toLocaleTimeString('pt-BR');
-});
-
-// Funções de formatação
+/**
+ * Formatar data do formato YYYYMMDD para DD/MM/YYYY
+ * @param {string} value - Data no formato YYYYMMDD
+ * @returns {string} Data formatada ou '-' se inválida
+ */
 const formatarData = (value) => {
   if (!value) return '-';
   if (typeof value === 'string' && value.length === 8 && /^\d{8}$/.test(value)) {
@@ -379,6 +236,11 @@ const formatarData = (value) => {
   return value;
 };
 
+/**
+ * Formatar hora para o padrão HH:MM ou HH:MM:SS
+ * @param {string} value - Hora em diversos formatos
+ * @returns {string} Hora formatada ou '-' se inválida
+ */
 const formatarHora = (value) => {
   if (!value) return '-';
   if (typeof value === 'string' && value.includes(':')) {
@@ -398,6 +260,11 @@ const formatarHora = (value) => {
   return value;
 };
 
+/**
+ * Formatar peso/valor numérico para o padrão brasileiro
+ * @param {number|string} value - Valor numérico
+ * @returns {string} Valor formatado com vírgula decimal
+ */
 const formatarPeso = (value) => {
   if (value === null || value === undefined || value === '') return '0,00';
   const num = parseFloat(value);
@@ -405,18 +272,304 @@ const formatarPeso = (value) => {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+/**
+ * Formatar tag para mostrar apenas os últimos 6 números
+ * @param {string} value - Tag completa
+ * @returns {string} Últimos 6 caracteres da tag ou '-' se vazia
+ */
 const formatarTag = (value) => {
   if (!value) return '-';
-  // Retorna apenas os últimos 6 números
   return value.slice(-6);
 };
 
-// Função para fechar o modal
+/**
+ * Converter data/hora do formato do sistema para objeto Date
+ * @param {string} data - Data no formato YYYYMMDD
+ * @param {string} hora - Hora em formato variado
+ * @returns {Date|null} Objeto Date ou null se inválido
+ */
+const converterParaDate = (data, hora) => {
+  if (!data || !hora) return null;
+  
+  // Formatar data (YYYYMMDD -> YYYY-MM-DD)
+  let dataFormatada = data;
+  if (typeof data === 'string' && data.length === 8) {
+    const year = data.substring(0, 4);
+    const month = data.substring(4, 6);
+    const day = data.substring(6, 8);
+    dataFormatada = `${year}-${month}-${day}`;
+  }
+  
+  // Formatar hora (HH:MM ou HHMMSS -> HH:MM:SS)
+  let horaFormatada = hora;
+  if (typeof hora === 'string') {
+    if (hora.includes(':')) {
+      const parts = hora.split(':');
+      if (parts.length === 2) {
+        horaFormatada = `${parts[0]}:${parts[1]}:00`;
+      } else {
+        horaFormatada = hora;
+      }
+    } else if (hora.length === 6) {
+      horaFormatada = `${hora.substring(0, 2)}:${hora.substring(2, 4)}:${hora.substring(4, 6)}`;
+    } else if (hora.length === 4) {
+      horaFormatada = `${hora.substring(0, 2)}:${hora.substring(2, 4)}:00`;
+    }
+  }
+  
+  return new Date(`${dataFormatada}T${horaFormatada}`);
+};
+
+/* ========================================
+   CAMADA DE PROCESSAMENTO DE DADOS
+======================================== */
+/* ========================================
+   CAMADA DE PROCESSAMENTO DE DADOS
+======================================== */
+
+/**
+ * Dados gerais da ordem selecionada
+ * Obtém informações básicas da OS como data, hora, prioridade, etc.
+ */
+const dadosOrdem = computed(() => {
+  if (!props.itemSelecionado.osid || !props.dadosCompletos.length) {
+    return {};
+  }
+  
+  // Pega o primeiro item da ordem para obter dados gerais
+  return props.dadosCompletos.find(item => item.osid === props.itemSelecionado.osid) || {};
+});
+
+/**
+ * Número da ordem formatado
+ * Retorna o número da OS ou 'N/A' se não encontrado
+ */
+const numeroOrdem = computed(() => {
+  return dadosOrdem.value.opTck || props.itemSelecionado.opTck || 'N/A';
+});
+
+/**
+ * Itens filtrados e ordenados da ordem selecionada
+ * Filtra todos os itens com mesmo osid e ordena por número do item
+ */
+const itensOrdenados = computed(() => {
+  if (!props.itemSelecionado.osid || !props.dadosCompletos.length) {
+    return [];
+  }
+
+  // Filtra todos os itens com o mesmo osid
+  const itensFiltrados = props.dadosCompletos.filter(item => 
+    item.osid === props.itemSelecionado.osid
+  );
+
+  // Ordena por itOSItem
+  return itensFiltrados.sort((a, b) => {
+    const itemA = parseInt(a.itOSItem) || 0;
+    const itemB = parseInt(b.itOSItem) || 0;
+    return itemA - itemB;
+  });
+});
+
+/**
+ * Itens agrupados por lote para visualização
+ * Agrupa os itens por lote e calcula totais por grupo
+ */
+const compararTextosNaturais = (valorA, valorB) => {
+  const textoA = String(valorA || '').trim();
+  const textoB = String(valorB || '').trim();
+
+  // Endereços não preenchidos ficam por último.
+  if (!textoA && textoB) return 1;
+  if (textoA && !textoB) return -1;
+
+  return textoA.localeCompare(textoB, 'pt-BR', {
+    numeric: true,
+    sensitivity: 'base'
+  });
+};
+
+const compararPorNumeroDoItem = (itemA, itemB) => {
+  return (parseInt(itemA.itOSItem) || 0) - (parseInt(itemB.itOSItem) || 0);
+};
+
+/**
+ * Mantém os itens separados por lote. Quando a ordenação por origem está ativa,
+ * ordena os itens dentro do lote e posiciona cada lote pela sua menor origem.
+ */
+const agruparItensPorLote = (itens) => {
+  const grupos = new Map();
+
+  itens.forEach(item => {
+    const lote = item.lote || 'Sem Lote';
+
+    if (!grupos.has(lote)) {
+      grupos.set(lote, {
+        lote,
+        itens: [],
+        totalItens: 0,
+        totalQuantidade: 0,
+        totalAtendida: 0,
+        menorOrigem: ''
+      });
+    }
+
+    const grupo = grupos.get(lote);
+    grupo.itens.push(item);
+    grupo.totalItens++;
+
+    const peso = parseFloat(item.itOsPeso) || 0;
+    grupo.totalQuantidade += peso;
+
+    if (item.itOSStatus === 'AT') {
+      grupo.totalAtendida += peso;
+    }
+  });
+
+  const gruposOrdenados = Array.from(grupos.values());
+
+  gruposOrdenados.forEach(grupo => {
+    grupo.itens.sort((itemA, itemB) => {
+      if (ordenarPorOrigem.value) {
+        return compararTextosNaturais(itemA.itOsOrigem, itemB.itOsOrigem)
+          || compararPorNumeroDoItem(itemA, itemB);
+      }
+
+      return compararPorNumeroDoItem(itemA, itemB);
+    });
+
+    grupo.menorOrigem = grupo.itens
+      .map(item => item.itOsOrigem)
+      .filter(origem => String(origem || '').trim())
+      .sort(compararTextosNaturais)[0] || '';
+  });
+
+  if (ordenarPorOrigem.value) {
+    gruposOrdenados.sort((grupoA, grupoB) => {
+      return compararTextosNaturais(grupoA.menorOrigem, grupoB.menorOrigem)
+        || compararTextosNaturais(grupoA.lote, grupoB.lote);
+    });
+  }
+
+  return gruposOrdenados;
+};
+
+const itensAgrupadosPorLote = computed(() => {
+  return agruparItensPorLote(itensOrdenados.value);
+});
+
+/**
+ * Itens agrupados por lote para impressão
+ * Similar ao anterior, mas exclui itens com status 'ER' (erro)
+ */
+const itensAgrupadosPorLoteParaImpressao = computed(() => {
+  // Filtra itens que não têm status 'ER'
+  const itensFiltrados = itensOrdenados.value.filter(item => item.itOSStatus !== 'ER');
+
+  return agruparItensPorLote(itensFiltrados);
+});
+
+/* ========================================
+   CAMADA DE CÁLCULOS E TOTALIZAÇÕES
+======================================== */
+
+/**
+ * Total de quantidade de todos os itens da OS
+ */
+const totalQuantidade = computed(() => {
+  return itensOrdenados.value.reduce((total, item) => {
+    const peso = parseFloat(item.itOsPeso) || 0;
+    return total + peso;
+  }, 0);
+});
+
+/**
+ * Total de quantidade atendida (apenas itens com status 'AT')
+ */
+const totalAtendida = computed(() => {
+  return itensOrdenados.value.reduce((total, item) => {
+    if (item.itOSStatus === 'AT') {
+      const peso = parseFloat(item.itOsPeso) || 0;
+      return total + peso;
+    }
+    return total;
+  }, 0);
+});
+
+/**
+ * Total de quantidade para impressão (excluindo itens 'ER')
+ * Resultado já convertido para sacas (dividido por 59)
+ */
+const totalQuantidadeParaImpressao = computed(() => {
+  const soma = itensOrdenados.value
+    .filter(item => item.itOSStatus !== 'ER')
+    .reduce((total, item) => {
+      const peso = parseFloat(item.itOsPeso) || 0;
+      return total + peso;
+    }, 0);
+  return soma / 59;
+});
+
+/**
+ * Total atendida para impressão (excluindo itens 'ER')
+ */
+const totalAtendidaParaImpressao = computed(() => {
+  return itensOrdenados.value
+    .filter(item => item.itOSStatus !== 'ER')
+    .reduce((total, item) => {
+      if (item.itOSStatus === 'AT') {
+        const peso = parseFloat(item.itOsPeso) || 0;
+        return total + peso;
+      }
+      return total;
+    }, 0);
+});
+
+/**
+ * Total de itens para impressão (excluindo itens 'ER')
+ */
+const totalItensParaImpressao = computed(() => {
+  return itensOrdenados.value.filter(item => item.itOSStatus !== 'ER').length;
+});
+
+/**
+ * Data atual formatada para impressão
+ */
+const dataImpressao = computed(() => {
+  const agora = new Date();
+  return agora.toLocaleDateString('pt-BR');
+});
+
+/**
+ * Hora atual formatada para impressão
+ */
+const horaImpressao = computed(() => {
+  const agora = new Date();
+  return agora.toLocaleTimeString('pt-BR');
+});
+
+/* ========================================
+   CAMADA DE AÇÕES E CONTROLE DE UI
+======================================== */
+
+/**
+ * Função para rolar até o rodapé do relatório
+ */
+const scrollToFooter = () => {
+  if (reportFooter.value) {
+    reportFooter.value.scrollIntoView({ behavior: 'smooth' });
+  }
+};
+
+/**
+ * Fechar o modal de impressão
+ */
 const fecharModal = () => {
   dialogVisible.value = false;
 };
 
-// Função para visualizar impressão (abre o conteúdo numa nova aba)
+/**
+ * Visualizar impressão em nova aba
+ */
 const visualizarImpressao = () => {
   const printWindow = window.open('', '_blank');
   const printContent = generatePrintHTML();
@@ -425,7 +578,9 @@ const visualizarImpressao = () => {
   printWindow.document.close();
 };
 
-// Função para imprimir
+/**
+ * Imprimir o relatório
+ */
 const imprimir = () => {
   const printWindow = window.open('', '_blank');
   const printContent = generatePrintHTML();
@@ -440,130 +595,173 @@ const imprimir = () => {
   }, 250);
 };
 
-// Função para gerar o HTML da impressão
+/* ========================================
+   CAMADA DE GERAÇÃO DE RELATÓRIOS
+======================================== */
+
+/**
+ * Gera o HTML completo para impressão do relatório
+ * Inclui estilos CSS, estrutura HTML e dados formatados
+ * @returns {string} HTML completo para impressão
+ */
 const generatePrintHTML = () => {
+  // === ESTILOS CSS PARA IMPRESSÃO ===
   const printStyles = `
     <style>
+      /* Garantir que o cabeçalho seja repetido em cada página */
+      @page {
+        margin: 0.5cm;
+      }
+      
+      /* Estilos para impressão */
       @media print {
         body { 
           font-family: Arial, sans-serif; 
-          font-size: 14px; 
-          margin: 5px;
+          font-size: 16px; 
+          margin: 0;
           color: black;
         }
         .no-print { display: none !important; }
         
+        /* Cabeçalho do relatório */
         .report-header h2 {
           text-align: center;
-          margin-bottom: 15px;
-          font-size: 22px;
+          margin-bottom: 20px;
+          font-size: 24px;
           font-weight: bold;
         }
         
+        /* Linha de informações principais */
         .info-line {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 15px;
-          padding: 6px 8px;
+          margin-bottom: 20px;
+          padding: 8px 10px;
           border: 1px solid #ddd;
           background-color: #f9f9f9;
         }
         
         .info-line span {
-          font-size: 12px;
+          font-size: 14px;
         }
         
-        .lote-group {
-          margin-bottom: 15px;
-          page-break-inside: avoid;
-        }
-        
-
-        
+        /* Tabelas de dados */
         .print-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 5px;
+          margin-bottom: 8px;
+          table-layout: fixed;
         }
+        
+        /* Larguras específicas das colunas para alinhamento */
+        .print-table th:nth-child(1), .print-table td:nth-child(1) { width: 5%; }  /* IT */
+        .print-table th:nth-child(2), .print-table td:nth-child(2) { width: 9%; }  /* EMP */
+        .print-table th:nth-child(3), .print-table td:nth-child(3) { width: 19%; } /* LOTE */
+        .print-table th:nth-child(4), .print-table td:nth-child(4) { width: 8%; }  /* TAG */
+        .print-table th:nth-child(5), .print-table td:nth-child(5) { width: 11%; } /* ORIGEM */
+        .print-table th:nth-child(6), .print-table td:nth-child(6) { width: 11%; } /* DESTINO */
+        .print-table th:nth-child(7), .print-table td:nth-child(7) { width: 11%; }  /* DEP. EM */
+        .print-table th:nth-child(8), .print-table td:nth-child(8) { width: 18%; } /* OBSERVAÇÃO */
+        .print-table th:nth-child(9), .print-table td:nth-child(9) { width: 8%; }  /* QTD.ORDEM */
+        .print-table th:nth-child(10), .print-table td:nth-child(10) { width: 8%; } /* ATENDIDA */
+        .print-table th:nth-child(11), .print-table td:nth-child(11) { width: 5%; } /* STATUS */
+        /* Thead deve repetir em cada página */
+        .main-data-table thead { display: table-header-group; }
+        .main-data-table tfoot { display: table-footer-group; }
         
         .print-table th,
         .print-table td {
-          border: 1px solid #333;
-          padding: 1px 3px;
+          border: none;
+          padding: 3px 6px;
           text-align: left;
-          font-size: 11px;
-          line-height: 1;
+          font-size: 13px;
+          line-height: 1.2;
           vertical-align: top;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         
         .print-table th {
           background-color: #f0f0f0;
           font-weight: bold;
           text-align: center;
-          padding: 2px 3px;
+          padding: 4px 6px;
+          border-bottom: 3px solid #333 !important;
+        }
+        
+        /* Otimizações para impressão */
+        .print-table {
+          page-break-inside: auto;
         }
         
         .print-table tr {
           height: auto;
-          line-height: 1;
+          line-height: 1.2;
+          page-break-inside: avoid;
+          page-break-after: auto;
         }
         
         .print-table tbody tr {
-          height: 18px;
+          height: 22px;
         }
         
-        .subtotal-lote {
-          margin-bottom: 8px;
-          padding: 4px 8px;
+        /* Subtotais por lote */
+        .subtotal-row td {
+          padding: 6px 10px;
           background-color: #f5f5f5;
           border: 1px solid #ccc;
           border-radius: 3px;
-        }
-        
-        .subtotal-info {
-          display: flex;
-          justify-content: space-between;
-          font-size: 11px;
           font-weight: bold;
+          font-size: 13px;
+        }
+        .subtotal-info { 
+          display: flex; 
+          justify-content: space-between; 
+          gap: 10px; 
+          align-items: center;
         }
         
+        /* Rodapé do relatório */
         .report-footer {
-          margin-top: 15px;
+          margin-top: 20px;
         }
         
+        /* Seção de totais */
         .totals-section {
           display: flex;
           justify-content: space-around;
           border: 1px solid #ddd;
-          padding: 6px 8px;
+          padding: 8px 10px;
           background-color: #f9f9f9;
         }
         
         .totals-title-inline {
-          font-size: 13px;
+          font-size: 15px;
           font-weight: bold;
           border-right: 1px solid #333;
-          padding-right: 8px;
-          margin-right: 8px;
+          padding-right: 10px;
+          margin-right: 10px;
         }
         
         .total-item {
-          font-size: 12px;
+          font-size: 14px;
           font-weight: bold;
         }
         
+        /* Informações de impressão */
         .print-info {
           text-align: center;
-          margin-top: 10px;
-          font-size: 11px;
+          margin-top: 12px;
+          font-size: 13px;
           color: #666;
         }
       }
       
+      /* Estilos para visualização em tela */
       @media screen {
         body { 
           font-family: Arial, sans-serif; 
-          margin: 10px;
+          margin: 5px;
         }
         
         .report-header h2 {
@@ -586,42 +784,63 @@ const generatePrintHTML = () => {
           margin-bottom: 20px;
         }
         
-
-        
+        /* Tabelas de dados */
         .print-table {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 8px;
+          table-layout: fixed;
         }
+        
+        /* Larguras específicas das colunas para alinhamento */
+        .print-table th:nth-child(1), .print-table td:nth-child(1) { width: 4%; }  /* IT */
+        .print-table th:nth-child(2), .print-table td:nth-child(2) { width: 6%; }  /* EMP */
+        .print-table th:nth-child(3), .print-table td:nth-child(3) { width: 9%; }  /* LOTE */
+        .print-table th:nth-child(4), .print-table td:nth-child(4) { width: 8%; }  /* TAG */
+        .print-table th:nth-child(5), .print-table td:nth-child(5) { width: 11%; } /* ORIGEM */
+        .print-table th:nth-child(6), .print-table td:nth-child(6) { width: 12%; } /* DESTINO */
+        .print-table th:nth-child(7), .print-table td:nth-child(7) { width: 8%; font-size: 20px !important; }  /* DEP. EM */
+        .print-table th:nth-child(8), .print-table td:nth-child(8) { width: 18%; } /* OBSERVAÇÃO */
+        .print-table th:nth-child(9), .print-table td:nth-child(9) { width: 9%; }  /* QTD.ORDEM */
+        .print-table th:nth-child(10), .print-table td:nth-child(10) { width: 9%; } /* ATENDIDA */
+        .print-table th:nth-child(11), .print-table td:nth-child(11) { width: 9%; } /* STATUS */
+        
+        /* Cabeçalho principal - sempre visível */
+        .main-data-table thead { display: table-header-group; }
         
         .print-table th,
         .print-table td {
-          border: 1px solid #333;
+          border: 1px solid #ddd;
           padding: 4px 6px;
           text-align: left;
           font-size: 13px;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         
         .print-table th {
-          background-color: #f0f0f0;
+          background-color: #37474f;
+          color: white;
           font-weight: bold;
           text-align: center;
+          font-size: 12px;
+          border-bottom: 3px solid #333 !important;
         }
         
-        .subtotal-lote {
-          margin-bottom: 12px;
+        .subtotal-row td {
           padding: 6px 10px;
           background-color: #f5f5f5;
           border: 1px solid #ccc;
           border-radius: 4px;
-        }
-        
-        .subtotal-info {
-          display: flex;
-          justify-content: space-between;
           font-weight: bold;
           color: #333;
           font-size: 13px;
+        }
+        .subtotal-info { 
+          display: flex; 
+          justify-content: space-between; 
+          gap: 10px; 
+          align-items: center;
         }
         
         .totals-section {
@@ -655,11 +874,10 @@ const generatePrintHTML = () => {
     </style>
   `;
 
-  // Gerar HTML para cada grupo de lote
-  const lotesHTML = Object.keys(itensAgrupadosPorLoteParaImpressao.value).map(lote => {
-    const grupo = itensAgrupadosPorLoteParaImpressao.value[lote];
-    
-    const tableRows = grupo.itens.map(item => `
+  // === GERAÇÃO DE UM ÚNICO TBODY COM TODOS OS LOTES (PARA REPETIR O THEAD EM CADA PÁGINA) ===
+  const tbodyRowsHTML = itensAgrupadosPorLoteParaImpressao.value.map(grupo => {
+    const lote = grupo.lote;
+    const itemRows = grupo.itens.map(item => `
       <tr>
         <td>${item.itOSItem}</td>
         <td>${item.empiCod}</td>
@@ -668,50 +886,30 @@ const generatePrintHTML = () => {
         <td>${item.itOsOrigem}</td>
         <td>${item.itOsDestino}</td>
         <td>${item.itOSStatus === 'AT' ? item.itOsDestinoDepEm : '-'}</td>
-        <td>${item.itOsObs || '-'}</td>
-        <td>${formatarPeso(item.itOsPeso)}</td>
-        <td>${item.itOSStatus === 'AT' ? formatarPeso(item.itOsPeso) : '0,00'}</td>
+        <td style="font-size:9px;">${item.itOsObs || '-'}</td>
+        <td>${formatarPeso(item.itOsPeso/59)}</td>
+        <td>${item.itOSStatus === 'AT' ? formatarPeso(item.itOsPeso/59) : '0,00'}</td>
         <td>${item.itOSStatus}</td>
       </tr>
     `).join('');
 
-    return `
-      <div class="lote-group">
-
-        
-        <table class="print-table">
-          <thead>
-            <tr>
-              <th>IT</th>
-              <th>EMP</th>
-              <th>LOTE</th>
-              <th>TAG</th>
-              <th>ORIGEM</th>
-              <th>DESTINO</th>
-              <th>DEP. EM</th>
-              <th>OBSERVAÇÃO</th>
-              <th>QTD.ORDEM</th>
-              <th>ATENDIDA</th>
-              <th>STATUS</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-        
-        <div class="subtotal-lote">
+    const subtotalRow = `
+      <tr class="subtotal-row">
+        <td colspan="11">
           <div class="subtotal-info">
             <span><strong>Subtotal do ${lote}:</strong></span>
             <span><strong>Itens:</strong> ${grupo.totalItens}</span>
-            <span><strong>Quantidade:</strong> ${formatarPeso(grupo.totalQuantidade)} kg</span>
-            <span><strong>Atendida:</strong> ${formatarPeso(grupo.totalAtendida)} kg</span>
+            <span><strong>Quantidade:</strong> ${formatarPeso(grupo.totalQuantidade/59)} sacas</span>
+            <span><strong>Atendida:</strong> ${formatarPeso(grupo.totalAtendida/59)} sacas</span>
           </div>
-        </div>
-      </div>
+        </td>
+      </tr>
     `;
+
+    return `${itemRows}${subtotalRow}`;
   }).join('');
 
+  // === DOCUMENTO HTML COMPLETO ===
   return `
     <!DOCTYPE html>
     <html>
@@ -720,11 +918,11 @@ const generatePrintHTML = () => {
       <title>Relatório da Ordem de Serviço - ${numeroOrdem.value}</title>
       ${printStyles}
     </head>
-    <body style="margin: 5px;">
+    <body style="margin: 0;">
       <div class="print-area">
+        <!-- Cabeçalho -->
         <div class="report-header">
           <h2>Relatório da Ordem de Serviço - ${numeroOrdem.value}</h2>
-          
           <div class="info-line">
             <span><strong>ORDEM:</strong> ${dadosOrdem.value.opTck || '-'}</span>
             <span><strong>DATA:</strong> ${formatarData(dadosOrdem.value.osdata)}</span>
@@ -733,9 +931,30 @@ const generatePrintHTML = () => {
             <span><strong>PRIORIDADE:</strong> ${dadosOrdem.value.osprioridade || '-'}</span>
           </div>
         </div>
-
-        ${lotesHTML}
-
+        
+        <!-- Tabela única com thead (repetido no início de cada página) e todos os itens -->
+        <table class="print-table main-data-table">
+          <thead>
+            <tr>
+              <th>IT</th>
+              <th>EMP</th>
+              <th>LOTE</th>
+              <th>TAG</th>
+              <th>ORIGEM</th>
+              <th>DES-<br>TINO</th>
+              <th>DEP. EM</th>
+              <th>OBSERVAÇÃO</th>
+              <th>QTD.<br>ORDEM</th>
+              <th>ATEN-<br>DIDA</th>
+              <th>STA-<br>TUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tbodyRowsHTML}
+          </tbody>
+        </table>
+        
+        <!-- Rodapé -->
         <div class="report-footer">
           <div class="totals-section">
             <div class="total-item totals-title-inline">
@@ -745,13 +964,17 @@ const generatePrintHTML = () => {
               <strong>Total de Itens:</strong> ${totalItensParaImpressao.value}
             </div>
             <div class="total-item">
-              <strong>Quantidade Total:</strong> ${formatarPeso(totalQuantidadeParaImpressao.value)} kg
+              <strong>Quantidade Total:</strong> ${formatarPeso(totalQuantidadeParaImpressao.value)} sacas
             </div>
             <div class="total-item">
-              <strong>Quantidade Atendida:</strong> ${formatarPeso(totalAtendidaParaImpressao.value)} kg
+              <strong>Quantidade Atendida:</strong> ${formatarPeso(totalAtendidaParaImpressao.value/59)} sacas
+            </div>
+            <div class="total-item">
+              <strong>Quantidade Restante:</strong> ${formatarPeso(totalQuantidadeParaImpressao.value - totalAtendidaParaImpressao.value/59)} sacas
             </div>
           </div>
           
+          <!-- Informações de impressão -->
           <div class="print-info">
             <div class="total-item"><strong>Projeto Comexim - WMS</strong></div>
             <small>Impresso em ${dataImpressao.value} às ${horaImpressao.value}</small>
@@ -766,6 +989,15 @@ const generatePrintHTML = () => {
 
 <style scoped>
 /* Estilos para visualização na tela */
+
+/* Cabeçalho fixo ao rolar */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 .print-area {
   background: white;
   padding: 10px;
@@ -796,39 +1028,72 @@ const generatePrintHTML = () => {
   color: #333;
 }
 
-.print-table {
+        .print-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 5px;
+          table-layout: fixed;
+        }
+        
+        /* Larguras específicas das colunas para alinhamento */
+        .print-table th:nth-child(1), .print-table td:nth-child(1) { width: 4%; }  /* IT */
+        .print-table th:nth-child(2), .print-table td:nth-child(2) { width: 6%; }  /* EMP */
+        .print-table th:nth-child(3), .print-table td:nth-child(3) { width: 11%; }  /* LOTE */
+        .print-table th:nth-child(4), .print-table td:nth-child(4) { width: 8%; }  /* TAG */
+        .print-table th:nth-child(5), .print-table td:nth-child(5) { width: 12%; } /* ORIGEM */
+        .print-table th:nth-child(6), .print-table td:nth-child(6) { width: 12%; } /* DESTINO */
+        .print-table th:nth-child(7), .print-table td:nth-child(7) { width: 8%; }  /* DEP. EM */
+        .print-table th:nth-child(8), .print-table td:nth-child(8) { width: 17%; } /* OBSERVAÇÃO */
+        .print-table th:nth-child(9), .print-table td:nth-child(9) { width: 9%; }  /* QTD.ORDEM */
+        .print-table th:nth-child(10), .print-table td:nth-child(10) { width: 9%; } /* ATENDIDA */
+        .print-table th:nth-child(11), .print-table td:nth-child(11) { width: 9%; } /* STATUS */
+        
+        .print-table th,
+        .print-table td {
+          border: none;
+          padding: 3px 6px;
+          text-align: left;
+          font-size: 13px;
+          line-height: 1.2;
+          vertical-align: top;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .print-table th {
+          background-color: #f0f0f0;
+          font-weight: bold;
+          text-align: center;
+          padding: 4px 6px;
+        }
+
+.origem-sort-button {
   width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
 }
 
-.print-table th,
-.print-table td {
-  border: 1px solid #ddd;
-  padding: 2px 6px;
-  text-align: left;
-  line-height: 1.1;
-  vertical-align: top;
+.origem-sort-button:hover,
+.origem-sort-button--active {
+  color: #1565c0;
 }
-
-.print-table th {
-  background-color: #37474f;
-  color: white;
-  font-weight: bold;
-  text-align: center;
-  font-size: 12px;
-  padding: 3px 6px;
-}
-
-.print-table td {
-  font-size: 11px;
-}
-
-.print-table tr {
-  height: auto;
-}
-
-.lote-group {
+        
+        .print-table tr {
+          height: auto;
+        }
+        
+        .print-table tbody tr {
+          height: 22px;
+        }.lote-group {
   margin-bottom: 20px;
 }
 
@@ -926,6 +1191,7 @@ const generatePrintHTML = () => {
   .print-table th {
     background-color: #f0f0f0 !important;
     color: black !important;
+    border-bottom: 3px solid #333 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -963,13 +1229,29 @@ const generatePrintHTML = () => {
   
   .print-table {
     font-size: 10px;
+    table-layout: fixed;
   }
   
   .print-table th,
   .print-table td {
     padding: 1px 3px;
     line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+  
+  /* Manter larguras das colunas mesmo em mobile */
+  .print-table th:nth-child(1), .print-table td:nth-child(1) { width: 4%; }  /* IT */
+  .print-table th:nth-child(2), .print-table td:nth-child(2) { width: 6%; }  /* EMP */
+  .print-table th:nth-child(3), .print-table td:nth-child(3) { width: 8%; }  /* LOTE */
+  .print-table th:nth-child(4), .print-table td:nth-child(4) { width: 8%; }  /* TAG */
+  .print-table th:nth-child(5), .print-table td:nth-child(5) { width: 12%; } /* ORIGEM */
+  .print-table th:nth-child(6), .print-table td:nth-child(6) { width: 12%; } /* DESTINO */
+  .print-table th:nth-child(7), .print-table td:nth-child(7) { width: 8%; }  /* DEP. EM */
+  .print-table th:nth-child(8), .print-table td:nth-child(8) { width: 15%; } /* OBSERVAÇÃO */
+  .print-table th:nth-child(9), .print-table td:nth-child(9) { width: 9%; }  /* QTD.ORDEM */
+  .print-table th:nth-child(10), .print-table td:nth-child(10) { width: 9%; } /* ATENDIDA */
+  .print-table th:nth-child(11), .print-table td:nth-child(11) { width: 9%; } /* STATUS */
   
   .print-table tbody tr {
     height: 14px;
@@ -1011,6 +1293,11 @@ const generatePrintHTML = () => {
   .subtotal-lote {
     padding: 5px 10px;
     margin-bottom: 10px;
+  }
+
+  .detalhes-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 }
 </style>

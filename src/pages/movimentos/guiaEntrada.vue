@@ -1,54 +1,81 @@
 <template>
-  <BasePage>
-    <v-container>
+    <v-container class="container">
       <v-card>
-        <v-card-title>
-          <h1>Guia de Entrada</h1>
+        <v-card-title class="d-flex align-center justify-space-between pa-4">
+          <div class="d-flex align-center ga-3">
+            <h1 class="titulo-pagina">Guia de Entrada</h1>
+            <v-chip
+              v-if="dados.length > 0"
+              color="success"
+              variant="tonal"
+              prepend-icon="mdi-table"
+            >
+              {{ dados.length }} registros
+            </v-chip>
+          </div>
+          
+          <v-btn
+            v-if="mostrarTabela"
+            color="primary"
+            @click="onFilter"
+            :loading="loading"
+            prepend-icon="mdi-refresh"
+            variant="elevated"
+            size="default"
+          >
+            Atualizar
+          </v-btn>
         </v-card-title>
         
         <v-card-text>
           <!-- Seção de Filtros -->
-          <div class="w-100 pa-4 border rounded-xl elevation-2 mb-4">
-            <div class="text-h6 text-left mb-3">Filtros</div>
+          <div class="w-100 pa-3 border rounded-xl elevation-2 mb-3">
             <v-form @submit.prevent="onFilter">
-              <v-row align="start" justify="start">
-                <v-col cols="12" md="4">
+              <v-row align="center" justify="start" dense>
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Ticket" 
                     variant="outlined"
                     v-model="ticket"
                     density="compact"
+                    autocomplete="off"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Data Inicial" 
                     variant="outlined" 
                     v-model="dataInicial"
                     type="date"
                     density="compact"
+                    autocomplete="off"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Data Final" 
                     variant="outlined" 
                     v-model="dataFinal"
                     type="date"
                     density="compact"
+                    autocomplete="off"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-              </v-row>
-              <v-row class="justify-center mt-2">
-                <v-btn 
-                  variant="tonal" 
-                  color="blue-accent-4" 
-                  prepend-icon="mdi-magnify" 
-                  @click="onFilter"
-                  :loading="loading"
-                >
-                  Filtrar
-                </v-btn>
+                <v-col cols="12" md="3" class="d-flex justify-center">
+                  <v-btn 
+                    variant="tonal" 
+                    color="blue-accent-4" 
+                    prepend-icon="mdi-magnify" 
+                    @click="onFilter"
+                    :loading="loading"
+                    block
+                  >
+                    Filtrar
+                  </v-btn>
+                </v-col>
               </v-row>
             </v-form>
           </div>
@@ -60,13 +87,13 @@
             :label-map-completo="labelMapCompleto"
             :loading="loading"
             :mostrar-tabela="mostrarTabela"
+            :altura-tabela="450"
             v-model:busca="busca"
             @atualizar="onFilter"
           />
         </v-card-text>
       </v-card>
     </v-container>
-  </BasePage>
 </template>
 
 <script setup>
@@ -198,11 +225,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
-h1 {
+h1.titulo-pagina {
   color: #2e7d32;
-  font-size: 1.8rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  margin: 0;
   text-align: center;
+}
+
+.container {
+  min-width: 1300px;
 }
 
 /* Card principal */

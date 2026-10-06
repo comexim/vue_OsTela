@@ -1,48 +1,6 @@
 <template>
   <!-- Seção da Tabela -->
   <div v-if="mostrarTabela" class="table-section">
-    <!-- Header da tabela com controles -->
-    <div class="table-header elevation-1 pa-4 mb-4 rounded-lg">
-      <v-row align="center" justify="space-between">
-        <v-col cols="12" md="6" class="d-flex align-center ga-3">
-          <v-btn 
-            color="primary" 
-            @click="$emit('atualizar')"
-            :loading="loading"
-            prepend-icon="mdi-refresh"
-            variant="elevated"
-            size="default"
-          >
-            Atualizar
-          </v-btn>
-          
-          <v-chip 
-            v-if="dados.length > 0"
-            color="success"
-            variant="tonal"
-            prepend-icon="mdi-table"
-          >
-            {{ dados.length }} registros
-          </v-chip>
-        </v-col>
-        
-        <v-col cols="12" md="6" class="d-flex justify-end">
-          <v-text-field
-            v-model="buscaLocal"
-            label="Buscar na tabela..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            hide-details
-            style="max-width: 350px;"
-            class="search-field"
-            @input="$emit('update:busca', buscaLocal)"
-          />
-        </v-col>
-      </v-row>
-    </div>
-
     <!-- Tabela principal -->
     <v-card class="table-card" elevation="3">
       <v-data-table
@@ -50,27 +8,40 @@
         :items="filteredItems"
         :loading="loading"
         class="data-table-custom"
-        :items-per-page="10"
-        :items-per-page-options="[10, 15, 25, 50, 100]"
+        hide-default-footer
+        :items-per-page="-1"
         :search="buscaLocal"
-        show-current-page
         fixed-header
-        height="600px"
+        height="350px"
       >
         <template v-slot:top>
           <div class="table-toolbar pa-3">
-            <div class="d-flex justify-space-between align-center">
+            <div class="d-flex justify-space-between align-center ga-3">
               <h3 class="table-title">Dados do Relatório</h3>
-              <v-btn
-                size="small"
-                color="success"
-                variant="tonal"
-                prepend-icon="mdi-microsoft-excel"
-                @click="exportarDados"
-                v-if="dados.length > 0"
-              >
-                Exportar Excel
-              </v-btn>
+              <div class="d-flex align-center ga-3">
+                <v-text-field
+                  v-model="buscaLocal"
+                  label="Buscar na tabela..."
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  clearable
+                  hide-details
+                  style="width: 300px;"
+                  class="search-field"
+                  @input="$emit('update:busca', buscaLocal)"
+                />
+                <v-btn
+                  size="small"
+                  color="success"
+                  variant="tonal"
+                  prepend-icon="mdi-microsoft-excel"
+                  @click="exportarDados"
+                  v-if="dados.length > 0"
+                >
+                  Exportar Excel
+                </v-btn>
+              </div>
             </div>
           </div>
         </template>
@@ -99,32 +70,22 @@
           <tr class="table-row-hover">
             <td v-for="header in headers" :key="header.key" class="table-cell text-left">
               <span v-if="isNumericField(header.key)" class="numeric-value">
-                {{ formatNumericValue(item[header.key]) }}
+                {{ formatNumericValue(getItemValue(item, header.key)) }}
               </span>
               <span v-else-if="isDateField(header.key)" class="date-value">
-                {{ formatDateValue(item[header.key]) }}
+                {{ formatDateValue(getItemValue(item, header.key)) }}
+              </span>
+              <span v-else-if="isSetorField(header.key)" class="text-value">
+                {{ formatSetor(item) }}
               </span>
               <span v-else-if="isEquipField(header.key)" class="">
-                {{ formatEquipamento(item[header.key]) }}
+                {{ formatEquipamento(getItemValue(item, header.key)) }}
               </span>
               <span v-else class="text-value">
-                {{ item[header.key] }}
+                {{ getItemValue(item, header.key) }}
               </span>
             </td>
           </tr>
-        </template>
-
-        <template v-slot:bottom>
-          <div class="table-footer pa-3">
-            <v-row align="center" justify="space-between">
-              <v-col cols="auto">
-                <span class="text-caption text-grey">
-                  Mostrando {{ Math.min(filteredItems.length, 10) }} de {{ filteredItems.length }} registros
-                  <span v-if="buscaLocal"> (filtrados de {{ dados.length }} total)</span>
-                </span>
-              </v-col>
-            </v-row>
-          </div>
         </template>
       </v-data-table>
     </v-card>
@@ -134,6 +95,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { cadAux } from '../../../stores/Movimentos/getCadAux';
+import { cadUsrMaq } from '../../../stores/Consultas/getCadUsrMaq';
 
 // Props
 const props = defineProps({
@@ -156,18 +118,24 @@ const props = defineProps({
   busca: {
     type: String,
     default: ''
+  },
+  alturaTabela: {
+    type: Number,
+    default: 600
   }
 });
 
 // Emits
-const emit = defineEmits(['atualizar', 'update:busca']);
+const emit = defineEmits(['update:busca']);
 
 
 // Data local
 const buscaLocal = ref(props.busca);
 const equipOptions = ref([]);
+const setorOptions = ref([]);
 
 const cadAuxStore = cadAux();
+const cadUsrMaqStore = cadUsrMaq();
 
 // Watch para sincronizar busca
 watch(() => props.busca, (newVal) => {
@@ -177,9 +145,10 @@ watch(() => props.busca, (newVal) => {
 async function loadCadAux() {
   try {
     const response = await cadAuxStore.cadAux("APT");
-    equipOptions.value = response.map(item => ({
-      label: item.cadAuxDescr,
-      value: item.cadAuxCod
+    const equipamentos = Array.isArray(response) ? response : [];
+    equipOptions.value = equipamentos.map(item => ({
+      label: getObjectValue(item, ['cadAuxDescr', 'CadAuxDescr', 'descr', 'descricao']),
+      value: getObjectValue(item, ['cadAuxCod', 'CadAuxCod', 'cod', 'codigo'])
     }));
     console.log('CadAux carregado:', equipOptions.value);
   } catch (error) {
@@ -187,29 +156,123 @@ async function loadCadAux() {
   }
 }
 
-onMounted(()=> {
-  loadCadAux();
+async function loadSetoresEquipamentos() {
+  try {
+    const response = await cadUsrMaqStore.getCadUsrMaq('RICARDO');
+    const equipamentos = Array.isArray(response) ? response : [];
+    setorOptions.value = equipamentos.map(item => ({
+      label: getObjectValue(item, ['cadAuxDescr', 'CadAuxDescr', 'descr', 'descricao']),
+      value: getObjectValue(item, ['cadAuxCod', 'CadAuxCod', 'cod', 'codigo']),
+      setor: getObjectValue(item, ['cadAuxCodAlt', 'CadAuxCodAlt', 'codAlt', 'codigoAlt', 'setor'])
+    }));
+    console.log('Setores por equipamento carregados:', setorOptions.value);
+  } catch (error) {
+    console.error('Erro ao carregar setores dos equipamentos: ', error);
+    setorOptions.value = [];
+  }
+}
+
+onMounted(async ()=> {
+  await Promise.all([loadCadAux(), loadSetoresEquipamentos()]);
 })
 
-// Computed para filtrar dados baseado na busca
+// Computed para filtrar dados baseado na busca com ordenação cronológica
 const filteredItems = computed(() => {
-  if (!buscaLocal.value) return props.dados;
+  // Primeiro aplica o filtro de busca
+  let dadosFiltrados = props.dados;
   
-  const termoBusca = buscaLocal.value.toLowerCase();
-  return props.dados.filter(item => {
-    return Object.values(item).some(valor => 
-      String(valor).toLowerCase().includes(termoBusca)
-    );
+  if (buscaLocal.value) {
+    const termoBusca = buscaLocal.value.toLowerCase();
+    dadosFiltrados = props.dados.filter(item => {
+      const setor = formatSetor(item);
+      return Object.values(item).some(valor => 
+        String(valor).toLowerCase().includes(termoBusca)
+      ) || setor.toLowerCase().includes(termoBusca);
+    });
+  }
+  
+  // Depois ordena por data e hora cronologicamente
+  return [...dadosFiltrados].sort((a, b) => {
+    // Busca campos de data (procura por qualquer campo que contenha "data")
+    const campoData = Object.keys(a).find(key => key.toLowerCase().includes('data'));
+    
+    if (!campoData) return 0; // Se não há campo de data, mantém ordem original
+    
+    const dataA = a[campoData] || '';
+    const dataB = b[campoData] || '';
+    
+    // Compara as datas (formato YYYYMMDD permite comparação direta como string)
+    if (dataA !== dataB) {
+      return dataA.toString().localeCompare(dataB.toString());
+    }
+    
+    // Se as datas são iguais, ordena por hora se existir
+    const campoHora = Object.keys(a).find(key => key.toLowerCase().includes('hora'));
+    
+    if (campoHora) {
+      const horaA = a[campoHora] || '00:00';
+      const horaB = b[campoHora] || '00:00';
+      return horaA.toString().localeCompare(horaB.toString());
+    }
+    
+    return 0;
   });
 });
 
 const equipMap = computed(() => {
   const map = {};
   equipOptions.value.forEach(item => {
-    map[item.value] = item.label;
+    addEquipmentMapValue(map, item.value, item.label);
   });
   return map;
 })
+
+const setorMap = computed(() => {
+  const map = {};
+  setorOptions.value.forEach(item => {
+    addEquipmentMapValue(map, item.value, item.setor);
+    addEquipmentMapValue(map, item.label, item.setor);
+  });
+  return map;
+})
+
+const getObjectValue = (item, keys) => {
+  const itemKeys = Object.keys(item || {});
+  const key = keys.find(possibleKey => {
+    const exactKey = itemKeys.find(itemKey => itemKey.toLowerCase() === possibleKey.toLowerCase());
+    return exactKey && item[exactKey] !== undefined && item[exactKey] !== null;
+  });
+
+  if (!key) return '';
+
+  const actualKey = itemKeys.find(itemKey => itemKey.toLowerCase() === key.toLowerCase());
+  return actualKey ? item[actualKey] : '';
+};
+
+const addEquipmentMapValue = (map, key, value) => {
+  if (!key || !value) return;
+
+  const normalized = normalizeCode(key);
+  map[normalized] = value;
+
+  const withoutLeadingZeros = normalized.replace(/^0+(\d)/, '$1');
+  map[withoutLeadingZeros] = value;
+
+  const onlyNumbers = normalized.replace(/\D/g, '');
+  if (onlyNumbers) {
+    map[onlyNumbers] = value;
+    map[onlyNumbers.replace(/^0+(\d)/, '$1')] = value;
+  }
+};
+
+const getRawItem = (item) => item?.raw || item?.columns || item;
+
+const getItemValue = (item, key) => {
+  const rawItem = getRawItem(item);
+  return rawItem ? rawItem[key] : '';
+};
+
+const normalizeCode = (value) => String(value ?? '').trim().toUpperCase();
 
 // Funções auxiliares para formatação
 const isNumericField = (fieldKey) => {
@@ -227,18 +290,57 @@ const isEquipField = (fieldKey) => {
   return equipFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
 
+const isSetorField = (fieldKey) => {
+  return fieldKey === '__setor' || fieldKey.toLowerCase() === 'setor';
+};
+
 const formatNumericValue = (value) => {
   if (value === null || value === undefined || value === '') return '-';
   const num = parseFloat(value);
   if (isNaN(num)) return value;
-  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  
+  // Converte kg para gramas (multiplica por 1000)
+  const gramas = num * 1000;
+  
+  // Retorna apenas o número sem unidades
+  return Math.round(gramas).toLocaleString('pt-BR');
 };
 
 const formatEquipamento = (value) => {
   if (!value) return '-';
   console.log('Formatando equipamento:', value, 'Mapa:', equipMap.value);
-  return equipMap.value[value] || value;
+  return equipMap.value[normalizeCode(value)] || value;
 }
+
+const getEquipamentoValue = (item) => {
+  const rawItem = getRawItem(item);
+  if (!rawItem) return null;
+
+  const equipKey = Object.keys(rawItem).find(key => isEquipField(key));
+  return equipKey ? rawItem[equipKey] : null;
+};
+
+const getSetorByItem = (item) => {
+  const equipamento = getEquipamentoValue(item);
+  return equipamento ? setorMap.value[normalizeCode(equipamento)] : null;
+};
+
+const formatSetorValue = (value) => {
+  if (!value) return '-';
+
+  const setores = {
+    Producao: 'Produção',
+    Expedicao: 'Expedição',
+    Recebimento: 'Recebimento',
+    Preparo: 'Preparo'
+  };
+
+  return setores[value] || value;
+};
+
+const formatSetor = (item) => {
+  return formatSetorValue(getSetorByItem(item));
+};
 
 const formatDateValue = (value) => {
   if (!value) return '-';
@@ -304,6 +406,8 @@ const exportarDados = () => {
         } else if (isDateField(header.key)) {
           cellClass = 'date';
           value = formatDateValue(value);
+        } else if (isSetorField(header.key)) {
+          value = formatSetor(item);
         } else if (isEquipField(header.key)) {
           value = formatEquipamento(value);
         }
@@ -456,6 +560,35 @@ const exportarDados = () => {
 .table-footer {
   background-color: #f5f5f5;
   border-top: 1px solid #e0e0e0;
+}
+
+/* Controles de paginação */
+.pagination-btn {
+  min-width: 36px !important;
+  width: 36px;
+  height: 36px;
+}
+
+.pagination-btn:hover {
+  background-color: rgba(25, 118, 210, 0.1);
+  color: #1976d2;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+}
+
+/* Seletor de itens por página */
+.items-per-page-select :deep(.v-field__input) {
+  min-height: 32px;
+}
+
+.items-per-page-select :deep(.v-field__outline) {
+  border-color: #e0e0e0;
+}
+
+.items-per-page-select :deep(.v-field--focused .v-field__outline) {
+  border-color: #1976d2;
 }
 
 /* Estados vazios e loading */

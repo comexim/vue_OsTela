@@ -1,44 +1,68 @@
 <template>
-  <BasePage>
-    <v-container>
+    <v-container class="container">
       <v-card>
-        <v-card-title>
-          <h1>Produção e parada de maquinários</h1>
+        <v-card-title class="d-flex align-center justify-space-between">
+          <div class="d-flex align-center ga-3">
+            <h1 class="titulo-pagina">Produção e parada de maquinários</h1>
+            <v-chip
+              v-if="dados.length > 0"
+              color="success"
+              variant="tonal"
+              prepend-icon="mdi-table"
+            >
+              {{ dados.length }} registros
+            </v-chip>
+          </div>
+          
+          <v-btn
+            v-if="mostrarTabela"
+            color="primary"
+            @click="onFilter"
+            :loading="loading"
+            prepend-icon="mdi-refresh"
+            variant="elevated"
+            size="default"
+          >
+            Atualizar
+          </v-btn>
         </v-card-title>
         
         <v-card-text>
           <!-- Seção de Filtros -->
-          <div class="w-100 pa-4 border rounded-xl elevation-2 mb-4">
-            <div class="text-h6 text-left mb-3">Filtros</div>
+          <div class="w-100 pa-3 border rounded-xl elevation-2 mb-3">
             <v-form @submit.prevent="onFilter">
-              <v-row align="start" justify="start">
-                <v-col cols="12" md="4">
+              <v-row align="center" justify="start" dense>
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="OP" 
                     variant="outlined"
                     v-model="op"
                     density="compact"
+                    autocomplete="off"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Data Inicial" 
                     variant="outlined" 
                     v-model="dataInicial"
                     type="date"
                     density="compact"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="2">
                   <v-text-field 
                     label="Data Final" 
                     variant="outlined" 
                     v-model="dataFinal"
                     type="date"
                     density="compact"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="2">
                   <v-select
                     label="Maquinário"
                     variant="outlined"
@@ -47,19 +71,21 @@
                     item-title="nome"
                     item-value="id"
                     density="compact"
+                    hide-details
                   ></v-select>
                 </v-col>
-              </v-row>
-              <v-row class="justify-center mt-2">
-                <v-btn 
-                  variant="tonal" 
-                  color="blue-accent-4" 
-                  prepend-icon="mdi-magnify" 
-                  @click="onFilter"
-                  :loading="loading"
-                >
-                  Filtrar
-                </v-btn>
+                <v-col cols="12" md="2" class="d-flex justify-center">
+                  <v-btn 
+                    variant="tonal" 
+                    color="blue-accent-4" 
+                    prepend-icon="mdi-magnify" 
+                    @click="onFilter"
+                    :loading="loading"
+                    block
+                  >
+                    Filtrar
+                  </v-btn>
+                </v-col>
               </v-row>
             </v-form>
           </div>
@@ -71,13 +97,13 @@
             :label-map-completo="labelMapCompleto"
             :loading="loading"
             :mostrar-tabela="mostrarTabela"
+            :altura-tabela="450"
             v-model:busca="busca"
             @atualizar="onFilter"
           />
         </v-card-text>
       </v-card>
     </v-container>
-  </BasePage>
 </template>
 
 <script setup>
@@ -86,9 +112,11 @@ import BasePage from '@/components/BasePage.vue';
 import TableProdPar from './components/tableProdPar.vue'
 import { prodPar } from '../../stores/Consultas/getProdPar';
 import { maquinario } from '../../stores/Consultas/getMaquinario';
+import { motivoParada } from '../../stores/Consultas/getMotivoParada';
 
 const prodParStore = prodPar();
 const maquinarioStore = maquinario();
+const motivoParadaStore = motivoParada();
 
 const dados = ref([]);
 const headers = ref([]);
@@ -104,18 +132,32 @@ const op = ref('');
 const selectedMaquinario = ref('');
 const dataInicial = ref('');
 const dataFinal = ref('');
+const motivosParada = ref([]);
+
+// Função para carregar motivos de parada
+const carregarMotivosParada = async () => {
+  try {
+    const response = await motivoParadaStore.getMotivoParada();
+    motivosParada.value = response;
+  } catch (error) {
+    console.error('Erro ao carregar motivos de parada:', error);
+  }
+};
 
 // Função para carregar maquinários
 const carregarMaquinarios = async () => {
   try {
     const response = await maquinarioStore.maquinario();
     if (Array.isArray(response)) {
-      maquinarios.value = response.map((nome, index) => {
-        return {
-          nome: nome.trim(), // Remove espaços desnecessários
-          id: String(index + 1).padStart(3, '0') // Adiciona IDs sequenciais formatados como 001, 002, etc.
-        };
-      });
+      maquinarios.value = [
+        { nome: 'Todos', id: '' }, 
+        ...response.map((nome, index) => {
+          return {
+            nome: nome.trim(), // Remove espaços desnecessários
+            id: String(index + 1).padStart(3, '0') // Adiciona IDs sequenciais formatados como 001, 002, etc.
+          };
+        })
+      ];
     }
   } catch (error) {
     console.error('Erro ao carregar maquinários:', error);
@@ -142,19 +184,55 @@ const formatarTituloColuna = (key) => {
   return mapeamento[key] || key;
 };
 
+// Função para substituir códigos dos motivos pelas descrições completas
+const substituirCodigosMotivos = (dadosArray) => {
+  if (!dadosArray || dadosArray.length === 0) return;
+  
+  dadosArray.forEach(item => {
+    // Procura pela chave 'parMotivo' (ou variações)
+    const chaveMotivo = Object.keys(item).find(key => 
+      key.toLowerCase() === 'parmotivo' || 
+      key === 'parMotivo'
+    );
+    
+    if (chaveMotivo && item[chaveMotivo]) {
+      const codigoOriginal = item[chaveMotivo];
+      const descricao = motivoParadaStore.getDescricaoPorCodigo(codigoOriginal);
+      item[chaveMotivo] = descricao;
+    }
+  });
+};
+
+// Função para substituir códigos dos maquinários pelos nomes
+const substituirCodigosMaquinarios = (dadosArray) => {
+  if (!dadosArray || dadosArray.length === 0) return;
+  
+  dadosArray.forEach(item => {
+    // Procura pela chave 'maqCod' (ou variações)
+    const chaveMaquinario = Object.keys(item).find(key => 
+      key.toLowerCase() === 'maqcod' || 
+      key === 'maqCod'
+    );
+    
+    if (chaveMaquinario && item[chaveMaquinario]) {
+      const codigoOriginal = item[chaveMaquinario];
+      // Procura o maquinário pelo código
+      const maquinario = maquinarios.value.find(m => m.id === codigoOriginal);
+      if (maquinario) {
+        item[chaveMaquinario] = maquinario.nome;
+      }
+    }
+  });
+};
+
 // Função para gerar headers dinâmicos baseados no labelMap da API
 const gerarHeaders = (dadosArray, labelMap = []) => {
   if (!dadosArray || dadosArray.length === 0) return [];
   
-  console.log('gerarHeaders - dadosArray length:', dadosArray.length);
-  console.log('gerarHeaders - labelMap:', labelMap);
-  
   // Se tiver labelMap, usa ele para definir as colunas
   if (labelMap && Array.isArray(labelMap) && labelMap.length > 0) {
-    console.log('Usando labelMap para gerar headers');
     const headersFromLabelMap = labelMap
       .filter(item => {
-        console.log(`Campo ${item.key}: exibe = ${item.exibe}`);
         return item.exibe === 'S';
       })
       .map(item => ({
@@ -164,11 +242,9 @@ const gerarHeaders = (dadosArray, labelMap = []) => {
         sortable: true
       }));
     
-    console.log('Headers gerados do labelMap:', headersFromLabelMap);
     return headersFromLabelMap;
   }
   
-  console.log('Usando fallback para gerar headers');
   // Fallback: se não tiver labelMap, usa o método anterior
   const primeiroItem = dadosArray[0];
   return Object.keys(primeiroItem).map(key => ({
@@ -194,38 +270,45 @@ const onFilter = async () => {
       op: op.value || '',
       dataIni: dataInicial.value ? dataInicial.value.replace(/-/g, '') : '', // Converte YYYY-MM-DD para YYYYMMDD
       dataFim: dataFinal.value ? dataFinal.value.replace(/-/g, '') : '', // Converte YYYY-MM-DD para YYYYMMDD
-      maqCod: selectedMaquinario.value || '',
+      maqCod: selectedMaquinario.value || 'Todos',
       usuario: localStorage.getItem('user')
     };
 
-    console.log('Parâmetros enviados para a API:', params);
-
     const response = await prodParStore.prodPar(params);
-    console.log('Dados recebidos da API:', response);
     
     if (Array.isArray(response)) {
       dados.value = response;
+      // Substitui códigos pelos nomes dos motivos
+      substituirCodigosMotivos(dados.value);
+      // Substitui códigos pelos nomes dos maquinários
+      substituirCodigosMaquinarios(dados.value);
       headers.value = gerarHeaders(response);
       labelMapCompleto.value = []; 
     } else if (response && Array.isArray(response.listaMov)) {
       // Trata o caso específico da API prodPar que retorna listaMov
       dados.value = response.listaMov;
+      // Substitui códigos pelos nomes dos motivos
+      substituirCodigosMotivos(dados.value);
+      // Substitui códigos pelos nomes dos maquinários
+      substituirCodigosMaquinarios(dados.value);
       headers.value = gerarHeaders(response.listaMov, response.labelMap);
       labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
-      console.log('LabelMap recebido:', response.labelMap);
-      console.log('LabelMap completo armazenado:', labelMapCompleto.value);
-      console.log('Headers gerados:', headers.value);
     } else if (response && Array.isArray(response.data)) {
       dados.value = response.data;
+      // Substitui códigos pelos nomes dos motivos
+      substituirCodigosMotivos(dados.value);
+      // Substitui códigos pelos nomes dos maquinários
+      substituirCodigosMaquinarios(dados.value);
       headers.value = gerarHeaders(response.data, response.labelMap);
       labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
     } else if (response && Array.isArray(response.listaMov)) {
       dados.value = response.listaMov;
+      // Substitui códigos pelos nomes dos motivos
+      substituirCodigosMotivos(dados.value);
+      // Substitui códigos pelos nomes dos maquinários
+      substituirCodigosMaquinarios(dados.value);
       headers.value = gerarHeaders(response.listaMov, response.labelMap);
       labelMapCompleto.value = response.labelMap || []; // Armazena labelMap completo
-      console.log('LabelMap recebido:', response.labelMap);
-      console.log('LabelMap completo armazenado:', labelMapCompleto.value);
-      console.log('Headers gerados:', headers.value);
     } else {
       console.warn('Formato de dados inesperado:', response);
       dados.value = [];
@@ -246,16 +329,21 @@ const onFilter = async () => {
 
 onMounted(() => {
   carregarMaquinarios();
-  console.log('Página carregada. Use os filtros para buscar dados.');
+  carregarMotivosParada();
 });
 </script>
 
 <style scoped>
-h1 {
+h1.titulo-pagina {
   color: #2e7d32;
-  font-size: 1.8rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  margin: 0;
   text-align: center;
+}
+
+.container {
+  min-width: 1300px;
+  margin-top: -30px;
 }
 
 /* Card principal */

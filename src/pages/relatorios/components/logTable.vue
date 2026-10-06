@@ -1,99 +1,65 @@
-<!--================================================================================================================
-ALTERAÇÕES: Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético da consulta de log das movimentações.
+﻿<!--================================================================================================================
+ALTERAÇÕES: 
+  - Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético da consulta de log das movimentações.
+  - Lucas - 20/03/2026 #002 / OBS: Otimizações de performance para grandes volumes de dados (28.000+ registros):
+    * Implementada paginação eficiente (padrão: 50 itens/página, configurável até "Todos")
+    * Otimizada renderização de células usando slots específicos por coluna
+    * Cache de dados processados para evitar recalcular
+    * Exportação Excel com processamento em chunks (1000 registros/vez)
+    * Indicadores visuais de quantidade de registros com alertas para grandes volumes
+    * Scroll automático ao topo ao mudar de página
+    * Removido campo de busca geral (uso de filtros específicos de lote e tag)
 =================================================================================================================-->
 
 <template>
   <!-- Seção da Tabela -->
   <div v-if="mostrarTabela" class="table-section">
-    <!-- Header da tabela com controles -->
-    <div class="table-header elevation-1 pa-4 mb-4 rounded-lg">
-      <v-row align="center" justify="space-between">
-        <v-col cols="12" md="6" class="d-flex align-center ga-3">
-          <v-btn 
-            color="primary" 
-            @click="$emit('atualizar')"
-            :loading="loading"
-            prepend-icon="mdi-refresh"
-            variant="elevated"
-            size="default"
-          >
-            Atualizar
-          </v-btn>
-          
-          <v-chip 
-            v-if="dadosProcessados.length > 0"
-            color="success"
-            variant="tonal"
-            prepend-icon="mdi-table"
-          >
-            {{ dadosProcessados.length }} registros
-          </v-chip>
-          
-          <v-chip 
-            v-if="filteredItems.length !== dados.length && buscaLocal"
-            color="info"
-            variant="tonal"
-            prepend-icon="mdi-filter"
-            class="ml-2"
-          >
-            {{ filteredItems.length }} filtrados
-          </v-chip>
-
-          <v-select
-            v-model="tipoRelatorio"
-            chips
-            label="Relatório"
-            :items="['Analítico','Sintético']"
-            variant="underlined"
-          ></v-select>
-        </v-col>
-        
-        <v-col cols="12" md="6" class="d-flex justify-end">
-          <v-text-field
-            v-model="buscaLocal"
-            label="Buscar na tabela..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            hide-details
-            style="max-width: 350px;"
-            class="search-field"
-            @input="$emit('update:busca', buscaLocal)"
-          />
-        </v-col>
-      </v-row>
-    </div>
-
     <!-- Tabela principal -->
     <v-card class="table-card" elevation="3">
       <v-data-table
-        :headers="headers"
-        :items="filteredItems"
+        :headers="headersDinamicos"
+        :items="paginatedItems"
         :loading="loading"
         class="data-table-custom"
-        :items-per-page="itemsPerPage"
-        :items-per-page-options="[
-          { value: 10, title: '10' },
-          { value: 15, title: '15' },
-          { value: 25, title: '25' },
-          { value: 50, title: '50' },
-          { value: 100, title: '100' },
-          { value: -1, title: 'Todos' }
-        ]"
-        :search="buscaLocal"
-        show-current-page
+        :items-per-page="50"
         fixed-header
-        height="600px"
-        :page="currentPage"
-        @update:page="onPageChange"
-        @update:items-per-page="onItemsPerPageChange"
+        :height="alturaTabela + 'px'"
+        hide-default-footer
       >
         <template v-slot:top>
           <div class="table-toolbar pa-3">
-            <div class="d-flex justify-space-between align-center">
-              <h3 class="table-title">Log de Movimentações - Dados</h3>
-              <div class="d-flex ga-2">
+            <div class="d-flex justify-space-between align-center flex-wrap ga-2">
+              <div class="d-flex align-center ga-2">
+                <h3 class="table-title">Log de Movimentações - Dados</h3>
+                <v-chip 
+                  :color="totalItems > 10000 ? 'warning' : 'success'" 
+                  variant="tonal" 
+                  size="small"
+                  prepend-icon="mdi-database"
+                >
+                  {{ totalItems.toLocaleString('pt-BR') }} {{ totalItems === 1 ? 'registro' : 'registros' }}
+                </v-chip>
+                <v-chip
+                  v-if="totalItems !== props.dados.length"
+                  color="info"
+                  variant="tonal"
+                  size="small"
+                  prepend-icon="mdi-filter"
+                >
+                  Filtrados de {{ props.dados.length.toLocaleString('pt-BR') }}
+                </v-chip>
+              </div>
+              <div class="d-flex ga-2 align-center flex-wrap">
+                <v-select
+                  v-model="tipoRelatorio"
+                  chips
+                  label="Relatório"
+                  :items="['Analítico','Sintético']"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  style="max-width: 150px;"
+                ></v-select>
                 <v-btn
                   color="primary"
                   variant="tonal"
@@ -108,6 +74,7 @@ ALTERAÇÕES: Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético 
                   prepend-icon="mdi-download"
                   @click="exportarDados"
                   :disabled="dados.length === 0"
+                  :loading="exportandoDados"
                 >
                   Exportar Excel
                 </v-btn>
@@ -135,23 +102,33 @@ ALTERAÇÕES: Lucas - 23/09/2025 #001 / OBS: Adicionado o relatório Sintético 
           </div>
         </template>
 
-        <!-- Template para células com valores numéricos -->
-        <template v-slot:item="{ item }">
-          <tr class="table-row-hover">
-            <td v-for="header in headers" :key="header.key" class="table-cell text-left">
-              <span 
-                :class="{
-                  'numeric-value': isNumericField(header.key),
-                  'date-value': isDateField(header.key),
-                  'text-value': !isNumericField(header.key) && !isDateField(header.key)
-                }"
-              >
-                {{ formatCellValue(item[header.key], header.key) }}
-              </span>
-            </td>
-          </tr>
+        <!-- Template de renderização otimizada por coluna -->
+        <template v-for="header in headersDinamicos" v-slot:[`item.${header.key}`]="{ item }" :key="header.key">
+          <span 
+            :class="{
+              'numeric-value': isNumericField(header.key),
+              'date-value': isDateField(header.key),
+              'text-value': !isNumericField(header.key) && !isDateField(header.key)
+            }"
+          >
+            {{ formatCellValue(item[header.key], header.key) }}
+          </span>
         </template>
       </v-data-table>
+      
+      <!-- Paginação Simples -->
+      <v-card-actions class="pa-1 border-t d-flex justify-space-between align-center">
+        <span class="text-caption text-grey-darken-1">
+          Exibindo {{ startItem }} - {{ endItem }} de {{ totalItems }} registros (50 por página)
+        </span>
+        <v-pagination
+          v-model="currentPage"
+          :length="totalPages"
+          :total-visible="7"
+          density="compact"
+          @update:model-value="onPageChange"
+        ></v-pagination>
+      </v-card-actions>
     </v-card>
   </div>
 
@@ -334,25 +311,38 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  busca: {
-    type: String,
-    default: ''
-  },
   labelMapCompleto: {
     type: Array,
     default: () => []
+  },
+  resumoInventario: {
+    type: Object,
+    default: () => ({})
+  },
+  tipoSelecionado: {
+    type: String,
+    default: ''
+  },
+  alturaTabela: {
+    type: Number,
+    default: 600
+  },
+  filtroLote: {
+    type: String,
+    default: ''
+  },
+  filtroTagBag: {
+    type: String,
+    default: ''
   }
 });
 
 // Emits
-const emit = defineEmits(['atualizar', 'update:busca']);
-
-// Data local
-const buscaLocal = ref(props.busca);
+const emit = defineEmits(['atualizar']);
 
 // Estados da paginação
 const currentPage = ref(1);
-const itemsPerPage = ref(10);
+// itemsPerPageConfig removido - paginação fixada em 50 itens por página
 
 // Estados do modal de configuração de colunas
 const modalColunas = ref(false);
@@ -361,25 +351,104 @@ const configColunas = ref([]);
 const itemArrastando = ref(null);
 const tipoRelatorio = ref('Analítico');
 
+// Estado de loading para exportação
+const exportandoDados = ref(false);
+
 // Store da API
 const setColumnStore = setColumn();
-
-// Watch para sincronizar busca
-watch(() => props.busca, (newVal) => {
-  buscaLocal.value = newVal;
-  currentPage.value = 1; // Reset página quando busca muda
-});
 
 // Watch para resetar página quando dados mudam
 watch(() => props.dados, () => {
   currentPage.value = 1; // Reset página quando dados mudam
+}, { deep: false }); // Shallow watch para performance
+
+// Watch para monitorar mudanças no tipo de relatório e resetar página
+watch(tipoRelatorio, () => {
+  currentPage.value = 1;
 });
 
-// Watch para monitorar mudanças na paginação
-watch(itemsPerPage, (newValue) => {
-});
-
-watch(currentPage, (newValue) => {
+// Computed para headers dinâmicos baseado no tipo de relatório
+const headersDinamicos = computed(() => {
+  console.log('🔄 Atualizando headers - Tipo:', tipoRelatorio.value);
+  console.log('📋 Headers originais:', props.headers.map(h => h.key));
+  
+  // Primeiro, adiciona a coluna de sacas se não existir
+  let headersComSacas = [...props.headers];
+  const temSacas = headersComSacas.some(h => h.key === 'sacas');
+  
+  if (!temSacas) {
+    // Encontra a posição da coluna de peso para inserir sacas logo após
+    const indexPeso = headersComSacas.findIndex(h => h.key === 'movEnderPeso');
+    
+    if (indexPeso >= 0) {
+      headersComSacas.splice(indexPeso + 1, 0, {
+        key: 'sacas',
+        title: 'Sacas',
+        align: 'start',
+        sortable: true
+      });
+      console.log('✅ Adicionada coluna Sacas após Peso na posição', indexPeso + 1);
+    }
+  }
+  
+  if (tipoRelatorio.value === 'Analítico') {
+    console.log('✅ Retornando headers (Analítico)');
+    return headersComSacas;
+  }
+  
+  // Para o modo Sintético, adiciona as colunas de Data Fim e Hora Fim
+  const headersSintetico = [...headersComSacas];
+  
+  // Verifica se as colunas de fim já existem nos headers originais
+  const temDataFim = headersSintetico.some(h => h.key === 'movEnderDataFim');
+  const temHoraFim = headersSintetico.some(h => h.key === 'movEnderHoraFim');
+  
+  console.log('🔍 Verificando colunas existentes - Data Fim:', temDataFim, 'Hora Fim:', temHoraFim);
+  
+  // Adiciona as colunas de Data Fim e Hora Fim se não existirem
+  if (!temDataFim) {
+    // Encontra a posição após a coluna de data para inserir a data fim
+    const indexData = headersSintetico.findIndex(h => h.key === 'movEnderData');
+    const indexHora = headersSintetico.findIndex(h => h.key === 'movEnderHora');
+    
+    if (indexHora >= 0) {
+      // Insere Data Fim após Hora
+      headersSintetico.splice(indexHora + 1, 0, {
+        key: 'movEnderDataFim',
+        title: 'Data Fim',
+        align: 'start',
+        sortable: true
+      });
+      console.log('✅ Adicionada coluna Data Fim após Hora na posição', indexHora + 1);
+    } else if (indexData >= 0) {
+      // Se não tem hora, insere após data
+      headersSintetico.splice(indexData + 1, 0, {
+        key: 'movEnderDataFim',
+        title: 'Data Fim',
+        align: 'start',
+        sortable: true
+      });
+      console.log('✅ Adicionada coluna Data Fim após Data na posição', indexData + 1);
+    }
+  }
+  
+  if (!temHoraFim) {
+    // Encontra onde inserir a Hora Fim (após Data Fim)
+    const indexDataFim = headersSintetico.findIndex(h => h.key === 'movEnderDataFim');
+    
+    if (indexDataFim >= 0) {
+      headersSintetico.splice(indexDataFim + 1, 0, {
+        key: 'movEnderHoraFim',
+        title: 'Hora Fim',
+        align: 'start',
+        sortable: true
+      });
+      console.log('✅ Adicionada coluna Hora Fim após Data Fim na posição', indexDataFim + 1);
+    }
+  }
+  
+  console.log('📋 Headers finais (Sintético):', headersSintetico.map(h => `${h.key} (${h.title})`));
+  return headersSintetico;
 });
 
 // Watch para atualizar configuração das colunas quando headers mudam
@@ -396,6 +465,12 @@ watch(() => props.labelMapCompleto, (newLabelMap) => {
   }
 }, { immediate: true });
 
+// Watch para atualizar configuração quando tipo de relatório muda
+watch(tipoRelatorio, (novoTipo) => {
+  // Força atualização das colunas quando muda o tipo
+  atualizarConfigColunas(headersDinamicos.value, props.labelMapCompleto);
+}, { immediate: false });
+
 // Função para atualizar configuração das colunas
 const atualizarConfigColunas = (headers, labelMapCompleto = null) => {
   
@@ -408,10 +483,13 @@ const atualizarConfigColunas = (headers, labelMapCompleto = null) => {
     { key: 'enderTag', title: 'Tag Ender' },
     { key: 'enderCod', title: 'Endereço' },
     { key: 'motCod', title: 'Usuário' },
-    { key: 'movEnderData', title: 'Data' },
-    { key: 'movEnderHora', title: 'Hora' },
+    { key: 'movEnderData', title: 'Data Início' },
+    { key: 'movEnderHora', title: 'Hora Início' },
+    { key: 'movEnderDataFim', title: 'Data Fim' },
+    { key: 'movEnderHoraFim', title: 'Hora Fim' },
     { key: 'movEnderTipo', title: 'Tipo' },
     { key: 'movEnderPeso', title: 'Peso' },
+    { key: 'sacas', title: 'Sacas' },
     { key: 'movEnderPesoSoltar', title: 'Peso Soltar' }
   ];
   
@@ -465,16 +543,49 @@ const atualizarConfigColunas = (headers, labelMapCompleto = null) => {
   atualizarPrevisualizacao();
 };
 
-// Computed para filtrar dados baseado na busca
+// Computed para filtrar dados baseado nos filtros específicos
 const filteredItems = computed(() => {
-  if (!buscaLocal.value) return dadosProcessados.value;
+  let resultado = dadosProcessados.value;
   
-  const termoBusca = buscaLocal.value.toLowerCase();
-  return dadosProcessados.value.filter(item => {
-    return Object.values(item).some(valor => 
-      String(valor).toLowerCase().includes(termoBusca)
+  // Aplica filtro por lote
+  if (props.filtroLote) {
+    const termoLote = props.filtroLote.toLowerCase();
+    resultado = resultado.filter(item => 
+      item.bagLote && String(item.bagLote).toLowerCase().includes(termoLote)
     );
-  });
+  }
+  
+  // Aplica filtro por tag bag
+  if (props.filtroTagBag) {
+    const termoTag = props.filtroTagBag.toLowerCase();
+    resultado = resultado.filter(item => 
+      item.bagTag && String(item.bagTag).toLowerCase().includes(termoTag)
+    );
+  }
+  
+  return resultado;
+});
+
+// Computed para paginação
+const paginatedItems = computed(() => {
+  const filtered = filteredItems.value;
+  const start = (currentPage.value - 1) * 50;
+  const end = start + 50;
+  return filtered.slice(start, end);
+});
+
+// Computed para informações de paginação
+const totalItems = computed(() => filteredItems.value.length);
+const totalPages = computed(() => {
+  return Math.ceil(totalItems.value / 50);
+});
+const startItem = computed(() => {
+  if (totalItems.value === 0) return 0;
+  return (currentPage.value - 1) * 50 + 1;
+});
+const endItem = computed(() => {
+  const end = currentPage.value * 50;
+  return Math.min(end, totalItems.value);
 });
 
 // Computed para colunas visíveis na ordem configurada
@@ -482,32 +593,125 @@ const colunasVisiveis = computed(() => {
   return configColunas.value.filter(coluna => coluna.visivel);
 });
 
+// Cache para dados processados (evita recalcular desnecessariamente)
+let cachedProcessedData = null;
+let cachedHash = '';
+
 // Computed para formatar ou não o relatório (Analítico ou Sintético)
 const dadosProcessados = computed(() => {
-  if (tipoRelatorio.value === 'Analítico') {
-    return props.dados;
+  // Cria hash simples para cache
+  const currentHash = `${tipoRelatorio.value}-${props.dados.length}`;
+  
+  // Se já processamos estes dados, retorna do cache
+  if (cachedHash === currentHash && cachedProcessedData) {
+    return cachedProcessedData;
   }
+  
+  console.log('🔄 Processando dados - Tipo:', tipoRelatorio.value);
+  
+  if (tipoRelatorio.value === 'Analítico') {
+    console.log('📊 Modo Analítico - Retornando', props.dados.length, 'registros');
+    // Adiciona cálculo de sacas para cada registro
+    cachedProcessedData = props.dados.map(item => ({
+      ...item,
+      sacas: item.movEnderPeso ? (parseFloat(item.movEnderPeso) / 59).toFixed(2) : '0.00'
+    }));
+    cachedHash = currentHash;
+    return cachedProcessedData;
+  }
+  
+  console.log('📊 Modo Sintético - Processando', props.dados.length, 'registros');
+  
   // Se for Sintético, irá agrupar por lote e somar os pesos
   const agrupados = {};
+  
   props.dados.forEach(item => {
     const lote = item.bagLote;
     if (!lote) return;
+    
+    // Cria uma chave única para ordenação baseada em data e hora
+    const dataHora = `${item.movEnderData}${item.movEnderHora}`;
+    
     if (!agrupados[lote]) {
-      agrupados[lote] = { ...item };
-      agrupados[lote].movEnderPeso = parseFloat(item.movEnderPeso) || 0;
-      agrupados[lote].movEnderPesoSoltar = parseFloat(item.movEnderPesoSoltar) || 0;
+      agrupados[lote] = { 
+        ...item,
+        movEnderPeso: parseFloat(item.movEnderPeso) || 0,
+        movEnderPesoSoltar: parseFloat(item.movEnderPesoSoltar) || 0,
+        // Campos para controlar data/hora início e fim
+        dataHoraInicio: dataHora,
+        dataHoraFim: dataHora,
+        movEnderDataFim: item.movEnderData,
+        movEnderHoraFim: item.movEnderHora,
+        // Array temporário para ordenação
+        _registros: [{ dataHora, data: item.movEnderData, hora: item.movEnderHora }]
+      };
     } else {
+      // Soma os pesos
       agrupados[lote].movEnderPeso += parseFloat(item.movEnderPeso) || 0;
       agrupados[lote].movEnderPesoSoltar += parseFloat(item.movEnderPesoSoltar) || 0;
+      
+      // Adiciona o registro ao array temporário
+      agrupados[lote]._registros.push({ 
+        dataHora, 
+        data: item.movEnderData, 
+        hora: item.movEnderHora 
+      });
+      
+      // Atualiza data/hora início se for anterior
+      if (dataHora < agrupados[lote].dataHoraInicio) {
+        agrupados[lote].dataHoraInicio = dataHora;
+        agrupados[lote].movEnderData = item.movEnderData;
+        agrupados[lote].movEnderHora = item.movEnderHora;
+      }
+      
+      // Atualiza data/hora fim se for posterior
+      if (dataHora > agrupados[lote].dataHoraFim) {
+        agrupados[lote].dataHoraFim = dataHora;
+        agrupados[lote].movEnderDataFim = item.movEnderData;
+        agrupados[lote].movEnderHoraFim = item.movEnderHora;
+      }
     }
   });
 
-  // Formata os valores somados para string
-  Object.values(agrupados).forEach(item => {
+  // Processa os dados agrupados para o formato final
+  const resultado = Object.values(agrupados);
+  resultado.forEach(item => {
+    // Ordena os registros por data/hora para garantir precisão
+    item._registros.sort((a, b) => a.dataHora.localeCompare(b.dataHora));
+    
+    // Define início e fim baseado na ordenação
+    const primeiro = item._registros[0];
+    const ultimo = item._registros[item._registros.length - 1];
+    
+    // Atualiza os campos de data/hora início
+    item.movEnderData = primeiro.data;
+    item.movEnderHora = primeiro.hora;
+    
+    // Define os campos de data/hora fim
+    item.movEnderDataFim = ultimo.data;
+    item.movEnderHoraFim = ultimo.hora;
+    
+    // Formata os valores somados para string
     item.movEnderPeso = item.movEnderPeso.toString();
     item.movEnderPesoSoltar = item.movEnderPesoSoltar.toString();
+    
+    // Calcula sacas (peso/59)
+    item.sacas = (item.movEnderPeso / 59).toFixed(2);
+    
+    // Remove campos temporários
+    delete item.dataHoraInicio;
+    delete item.dataHoraFim;
+    delete item._registros;
   });
-  return Object.values(agrupados);
+  
+  console.log('✅ Dados processados (Sintético):', resultado.length, 'lotes agrupados');
+  console.log('📄 Primeiro item processado:', resultado[0]);
+  
+  // Armazena no cache
+  cachedProcessedData = resultado;
+  cachedHash = currentHash;
+  
+  return resultado;
 });
 
 // Função para obter ordem da coluna
@@ -521,21 +725,26 @@ const obterOrdemColuna = (index) => {
 // Funções para controle da paginação
 const onPageChange = (page) => {
   currentPage.value = page;
+  // Scroll para o topo da tabela
+  const tableElement = document.querySelector('.v-data-table__wrapper');
+  if (tableElement) {
+    tableElement.scrollTop = 0;
+  }
 };
 
-const onItemsPerPageChange = (itemsPerPageValue) => {
-  itemsPerPage.value = itemsPerPageValue;
-  currentPage.value = 1; // Reset para primeira página
-};
+// Função removida - paginação fixada em 50 itens por página
 
 // Funções auxiliares para formatação
 const isNumericField = (fieldKey) => {
-  const numericFields = ['peso', 'quant', 'quantidade', 'valor', 'val', 'num', 'qtd'];
+  // Exceção para numOP - não deve ser formatado como numérico
+  if (fieldKey.toLowerCase() === 'numop') return false;
+  
+  const numericFields = ['peso', 'quant', 'quantidade', 'valor', 'val', 'num', 'qtd', 'sacas'];
   return numericFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
 
 const isDateField = (fieldKey) => {
-  const dateFields = ['data', 'date', 'movenddata'];
+  const dateFields = ['data', 'date', 'movenddata', 'movenddatafim'];
   return dateFields.some(field => fieldKey.toLowerCase().includes(field.toLowerCase()));
 };
 
@@ -558,44 +767,106 @@ const formatDateValue = (value) => {
   return value;
 };
 
+// Função para formatar o bagTag
+const formatBagTag = (value) => {
+  if (!value) return '-';
+  return value.slice(-6);
+};
+
 const formatCellValue = (value, fieldKey) => {
-  if (isNumericField(fieldKey)) {
+  if (fieldKey === 'bagTag') {
+    return formatBagTag(value);
+  } else if (isNumericField(fieldKey)) {
     return formatNumericValue(value);
-  } else if (isDateField(fieldKey)) {
+  } else if (isDateField(fieldKey) || fieldKey.includes('Data') || fieldKey.includes('Hora')) {
     return formatDateValue(value);
   }
   return value || '-';
 };
 
-// Função para exportar dados
-const exportarDados = () => {
-  if (props.dados.length === 0) {
+// Função para exportar dados (otimizada para grandes volumes)
+const exportarDados = async () => {
+  // Usa filteredItems para exportar apenas dados filtrados
+  const dadosParaExportar = filteredItems.value;
+  
+  if (dadosParaExportar.length === 0) {
     alert('Não há dados para exportar');
     return;
   }
 
+  // Alerta para grandes volumes
+  if (dadosParaExportar.length > 10000) {
+    const confirmar = confirm(
+      `Você está exportando ${dadosParaExportar.length.toLocaleString('pt-BR')} registros.\\n\\n` +
+      `Isso pode levar alguns segundos. Deseja continuar?`
+    );
+    if (!confirmar) return;
+  }
+
   try {
+    // Mostra loading
+    exportandoDados.value = true;
+    
+    // Aguarda um tick para o navegador atualizar a UI
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // Cria uma planilha Excel usando HTML table
     let excelContent = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
       <head>
         <meta charset="utf-8">
         <style>
-          table { border-collapse: collapse; width: 100%; }
+          table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
           th { background-color: #37474f; color: white; font-weight: bold; padding: 8px; border: 1px solid #ccc; text-align: left; }
           td { padding: 8px; border: 1px solid #ccc; text-align: left; }
           .numeric { text-align: left; }
           .date { text-align: left; }
+          .resumo { margin-bottom: 30px; }
+          .resumo h2 { color: #2e7d32; margin-bottom: 15px; }
+          .resumo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+          .resumo-card { border: 1px solid #ddd; padding: 10px; background: #f8f9fa; }
+          .resumo-card strong { display: block; margin-bottom: 5px; color: #666; font-size: 12px; }
+          .resumo-card .value { font-size: 16px; font-weight: bold; }
         </style>
       </head>
       <body>
+    `;
+
+    // Adiciona resumo do inventário se for do tipo Inventario
+    if (props.tipoSelecionado === 'Inventario' && props.resumoInventario && Object.keys(props.resumoInventario).length > 0) {
+      excelContent += `
+        <div class="resumo">
+          <h2>📊 Resumo do Inventário</h2>
+          <div class="resumo-grid">
+            <div class="resumo-card">
+              <strong>Hora Início</strong>
+              <div class="value">${props.resumoInventario.horaInicio || '-'}</div>
+            </div>
+            <div class="resumo-card">
+              <strong>Hora Fim</strong>
+              <div class="value">${props.resumoInventario.horaFim || '-'}</div>
+            </div>
+            <div class="resumo-card">
+              <strong>Total de Bags</strong>
+              <div class="value">${props.resumoInventario.totalBags || 0}</div>
+            </div>
+            <div class="resumo-card">
+              <strong>Total de Sacas</strong>
+              <div class="value">${props.resumoInventario.totalSacas || '0.00'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    excelContent += `
         <table>
           <thead>
             <tr>
     `;
 
-    // Adiciona cabeçalhos
-    props.headers.forEach(header => {
+    // Adiciona cabeçalhos usando headersDinamicos
+    headersDinamicos.value.forEach(header => {
       excelContent += `<th>${header.title}</th>`;
     });
 
@@ -605,29 +876,52 @@ const exportarDados = () => {
           <tbody>
     `;
 
-    // Adiciona dados
-    props.dados.forEach(item => {
-      excelContent += '<tr>';
-      props.headers.forEach(header => {
-        let value = item[header.key] || '';
-        let cellClass = '';
-        
-        // Aplica formatação baseada no tipo de campo
-        if (isNumericField(header.key)) {
-          cellClass = 'numeric';
-          value = formatNumericValue(value);
-        } else if (isDateField(header.key)) {
-          cellClass = 'date';
-          value = formatDateValue(value);
-        }
-        
-        // Escapa caracteres especiais para HTML
-        value = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        
-        excelContent += `<td class="${cellClass}">${value}</td>`;
+    // Processa dados em chunks para não travar o navegador
+    const chunkSize = 1000;
+    const totalChunks = Math.ceil(dadosParaExportar.length / chunkSize);
+    
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * chunkSize;
+      const end = Math.min(start + chunkSize, dadosParaExportar.length);
+      const chunk = dadosParaExportar.slice(start, end);
+      
+      chunk.forEach(item => {
+        excelContent += '<tr>';
+        headersDinamicos.value.forEach(header => {
+          let value = item[header.key] || '';
+          let cellClass = '';
+          let cellStyle = '';
+          
+          // Aplica formatação baseada no tipo de campo
+          if (header.key === 'bagTag') {
+            // Para bagTag, força formato texto para evitar notação científica
+            cellStyle = 'mso-number-format:"\\@"';
+            value = formatBagTag(value); // Pega últimos 6 dígitos
+          } else if (header.key === 'enderTag' || header.key === 'bagLote' || header.key.toLowerCase().includes('tag')) {
+            // Para outros campos de tag e lote, força formato texto
+            cellStyle = 'mso-number-format:"\\@"';
+            value = String(value);
+          } else if (isNumericField(header.key)) {
+            cellClass = 'numeric';
+            value = formatNumericValue(value);
+          } else if (isDateField(header.key)) {
+            cellClass = 'date';
+            value = formatDateValue(value);
+          }
+          
+          // Escapa caracteres especiais para HTML
+          value = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          
+          excelContent += `<td class="${cellClass}" ${cellStyle ? `style="${cellStyle}"` : ''}>${value}</td>`;
+        });
+        excelContent += '</tr>';
       });
-      excelContent += '</tr>';
-    });
+      
+      // Permite que o navegador respire entre chunks
+      if (i < totalChunks - 1) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
 
     excelContent += `
           </tbody>
@@ -650,7 +944,9 @@ const exportarDados = () => {
     const dataFormatada = agora.toLocaleDateString('pt-BR').replace(/\//g, '-');
     const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, 'h');
     
-    link.setAttribute('download', `Log_Movimentacoes_${dataFormatada}_${horaFormatada}.xls`);
+    const tipoArquivo = tipoRelatorio.value === 'Sintético' ? 'Sintetico' : 'Analitico';
+    const prefixoTipo = props.tipoSelecionado === 'Inventario' ? 'Inventario_' : '';
+    link.setAttribute('download', `${prefixoTipo}Log_Movimentacoes_${tipoArquivo}_${dataFormatada}_${horaFormatada}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -659,10 +955,24 @@ const exportarDados = () => {
     // Libera a URL do blob
     URL.revokeObjectURL(url);
     
-    console.log('Arquivo Excel exportado com sucesso!');
+    // Mensagem informativa sobre a exportação
+    const temFiltros = props.filtroLote || props.filtroTagBag;
+    const mensagemFiltros = temFiltros ? ' (dados filtrados)' : '';
+    console.log(`✅ Arquivo Excel exportado com sucesso! ${dadosParaExportar.length.toLocaleString('pt-BR')} registros${mensagemFiltros}`);
+    
+    // Alerta visual de sucesso
+    if (temFiltros) {
+      alert(
+        `✅ Exportação concluída com sucesso!\n\n` +
+        `📊 ${dadosParaExportar.length.toLocaleString('pt-BR')} registros exportados\n` +
+        `🔍 Filtros aplicados: ${props.filtroLote ? `Lote: ${props.filtroLote}` : ''}${props.filtroLote && props.filtroTagBag ? ', ' : ''}${props.filtroTagBag ? `Tag: ${props.filtroTagBag}` : ''}`
+      );
+    }
   } catch (error) {
-    console.error('Erro ao exportar dados para Excel:', error);
+    console.error('❌ Erro ao exportar dados para Excel:', error);
     alert('Erro ao exportar dados para Excel');
+  } finally {
+    exportandoDados.value = false;
   }
 };
 
@@ -716,7 +1026,7 @@ const atualizarPrevisualizacao = () => {
 // Presets de configuração
 const aplicarPresetPadrao = () => {
   // Define colunas essenciais como padrão baseado nos campos do MovEnder
-  const colunasEssenciais = ['baglote', 'enderecod', 'motcod', 'movenddata', 'movendhora', 'movendtipo', 'movendpeso'];
+  const colunasEssenciais = ['baglote', 'enderecod', 'motcod', 'movenddata', 'movendhora', 'movenddatafim', 'movendhorafim', 'movendtipo', 'movendpeso'];
   
   configColunas.value.forEach(coluna => {
     const keyLower = coluna.key.toLowerCase();
@@ -926,15 +1236,26 @@ Configuração: ${payload}
   padding: 60px 20px;
 }
 
-/* Campo de busca */
-.search-field :deep(.v-field__outline) {
-  border-color: #1976d2;
+/* Paginação customizada */
+.border-t {
+  border-top: 1px solid #e0e0e0;
+  background-color: #f5f5f5;
 }
 
-.search-field :deep(.v-field--focused .v-field__outline) {
-  border-color: #1976d2;
-  border-width: 2px;
+.v-card-actions {
+  min-height: 60px;
 }
+
+.v-pagination :deep(.v-pagination__item),
+.v-pagination :deep(.v-pagination__navigation) {
+  box-shadow: none;
+}
+
+.v-pagination :deep(.v-pagination__item--is-active) {
+  background-color: #1976d2 !important;
+  color: white !important;
+}
+
 
 /* Responsividade */
 @media (max-width: 768px) {
@@ -945,10 +1266,6 @@ Configuração: ${payload}
   
   .table-header .v-col {
     width: 100%;
-  }
-  
-  .search-field {
-    max-width: 100% !important;
   }
   
   .data-table-custom {

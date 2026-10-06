@@ -1,54 +1,81 @@
 <template>
-  <BasePage>
-    <v-container>
+    <v-container class="container">
       <v-card>
         <v-card-title>
-          <h1>Relatório Imãs</h1>
+          <v-row align="center" justify="space-between">
+            <v-col cols="auto">
+              <h1 class="titulo-pagina">Relatório Imãs</h1>
+            </v-col>
+            <v-col cols="auto" class="d-flex align-center ga-3">
+              <v-chip 
+                v-if="dados.length > 0"
+                color="success"
+                variant="tonal"
+                prepend-icon="mdi-table"
+              >
+                {{ dados.length }} registros
+              </v-chip>
+              <v-btn 
+                color="primary" 
+                @click="onFilter"
+                :loading="loading"
+                prepend-icon="mdi-refresh"
+                variant="elevated"
+              >
+                Atualizar
+              </v-btn>
+            </v-col>
+          </v-row>
         </v-card-title>
         
         <v-card-text>
           <!-- Seção de Filtros -->
-          <div class="w-100 pa-4 border rounded-xl elevation-2 mb-4">
+          <div class="w-100 pa-3 border rounded-xl elevation-2 mb-4">
             <div class="text-h6 text-left mb-3">Filtros</div>
             <v-form @submit.prevent="onFilter">
-              <v-row align="start" justify="start">
-                <v-col cols="12" md="4">
+              <v-row align="start" justify="start" dense>
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Lote Inicial" 
                     variant="outlined"
                     v-model="loteInicial"
                     density="compact"
+                    autocomplete="off"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Data Inicial" 
                     variant="outlined" 
                     v-model="dataInicial"
                     type="date"
                     density="compact"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field 
                     label="Data Final" 
                     variant="outlined" 
                     v-model="dataFinal"
                     type="date"
                     density="compact"
+                    hide-details
                   ></v-text-field>
                 </v-col>
-              </v-row>
-              <v-row class="justify-center mt-2">
-                <v-btn 
-                  variant="tonal" 
-                  color="blue-accent-4" 
-                  prepend-icon="mdi-magnify" 
-                  @click="onFilter"
-                  :loading="loading"
-                >
-                  Filtrar
-                </v-btn>
+                <v-col cols="12" md="3" class="d-flex align-end">
+                  <v-btn 
+                    variant="tonal" 
+                    color="blue-accent-4" 
+                    prepend-icon="mdi-magnify" 
+                    @click="onFilter"
+                    :loading="loading"
+                    block
+                  >
+                    Filtrar
+                  </v-btn>
+                </v-col>
               </v-row>
             </v-form>
           </div>
@@ -60,17 +87,15 @@
             :loading="loading"
             :mostrar-tabela="mostrarTabela"
             v-model:busca="busca"
-            @atualizar="onFilter"
+            :altura-tabela="450"
           />
         </v-card-text>
       </v-card>
     </v-container>
-  </BasePage>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import BasePage from '@/components/BasePage.vue';
 import ImasTable from './components/imasTable.vue';
 import { getapimas } from '../../stores/Consultas/getApImas';
 
@@ -92,12 +117,33 @@ const gerarHeaders = (dadosArray) => {
   if (!dadosArray || dadosArray.length === 0) return [];
   
   const primeiroItem = dadosArray[0];
-  return Object.keys(primeiroItem).map(key => ({
+  const headersGerados = Object.keys(primeiroItem).map(key => ({
     title: formatarTituloColuna(key),
     key: key,
     align: 'start',
     sortable: true
   }));
+
+  const equipIndex = headersGerados.findIndex(header => isEquipamentoKey(header.key));
+  const setorHeader = {
+    title: 'Setor',
+    key: '__setor',
+    align: 'start',
+    sortable: true
+  };
+
+  if (equipIndex >= 0) {
+    headersGerados.splice(equipIndex + 1, 0, setorHeader);
+  } else {
+    headersGerados.push(setorHeader);
+  }
+
+  return headersGerados;
+};
+
+const isEquipamentoKey = (key) => {
+  const normalizedKey = key.toLowerCase();
+  return normalizedKey.includes('equipto') || normalizedKey.includes('equipamento') || normalizedKey.includes('equip');
 };
 
 // Função para formatar o título das colunas
@@ -180,11 +226,21 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.titulo-pagina {
+  color: #2e7d32;
+  font-size: 1.5rem;
+  margin-bottom: 0;
+}
+
 h1 {
   color: #2e7d32;
   font-size: 1.8rem;
   margin-bottom: 0.5rem;
   text-align: center;
+}
+
+.container {
+  min-width: 1300px;
 }
 
 /* Card principal */

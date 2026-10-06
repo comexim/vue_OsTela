@@ -16,7 +16,7 @@ const router = createRouter({
             {
                 path: '/movimentos/apontamentoImas',
                 component: () => import('../pages/movimentos/apontamentoImas.vue'),
-                meta: { requireAuth: true }
+                meta: { requireAuth: true, requiredPermission: 'MotDirImas' }
             },
             {
                 path: '/relatorios/relatorioImas',
@@ -31,7 +31,7 @@ const router = createRouter({
             {
                 path: '/relatorios/producaoParada',
                 component: () => import('../pages/relatorios/producaoParada.vue'),
-                meta: { requireAuth: true }
+                meta: { requireAuth: true, requiredPermission: 'MotDirImas' }
             },
             {
                 path: '/relatorios/logMovimentos',
@@ -41,17 +41,47 @@ const router = createRouter({
             {
                 path: '/movimentos/osXmoega',
                 component: () => import('../pages/movimentos/osXmoega.vue'),
-                meta: { requireAuth: true }
+                meta: { requireAuth: true, requiredPermission: 'MotDirOsMoe' }
             },
             {
                 path: '/movimentos/ordemServico',
                 component: () => import('../pages/movimentos/ordemServico.vue'),
-                meta: { requireAuth: true }
+                meta: { requireAuth: true, requiredPermission: 'MotDirOS' }
             },
             {
                 path: '/components/dashboard',
                 component: () => import('../components/dashboard.vue'),
                 meta: { requireAuth: true }
+            },
+            {
+                path: '/movimentos/silos',
+                component: () => import('../pages/movimentos/silos.vue'),
+                meta: { requireAuth: true, requiredPermission: 'MotDirSilo' }
+            },
+            {
+                path: '/relatorios/saldoSiloWMSXSUP',
+                component: () => import('../pages/relatorios/saldoSiloWMSXSUP.vue'),
+                meta: { requireAuth: true, requiredPermission: 'MotAdm'}
+            },
+            {
+                path: '/relatorios/producaoData',
+                component: () => import('../pages/relatorios/producaoData.vue'),
+                meta: { requireAuth: true, requiredPermission: 'MotAdm'}
+            },
+            {
+                path: '/relatorios/producao',
+                component: () => import('../pages/relatorios/producao.vue'),
+                meta: { requireAuth: true }
+            },
+            {
+                path: '/relatorios/producaoDashboard',
+                component: () => import('../pages/relatorios/producaoDashboard.vue'),
+                meta: { requireAuth: true }
+            },
+            {
+                path: '/consultas/dashboard',
+                component: () => import('../pages/consultas/Dashboard.vue'),
+                meta: {requireAuth: true, requiredPermission: 'MotAdm'}
             }
     ]
 })
@@ -62,6 +92,29 @@ router.beforeEach((to, from, next) => {
         if(!tokenCrp) {
             next({ path: '/' });
         } else {
+            // Verifica permissões específicas se necessário
+            if (to.meta.requiredPermission) {
+                const direitosStr = localStorage.getItem('userDireitos');
+                if (direitosStr) {
+                    try {
+                        const direitos = JSON.parse(direitosStr);
+                        const hasPermission = direitos[to.meta.requiredPermission] === 'S';
+                        
+                        if (!hasPermission) {
+                            // Redireciona para a página de mapa ou dashboard
+                            next({ path: '/consultas/mapa' });
+                            return;
+                        }
+                    } catch (e) {
+                        next({ path: '/' });
+                        return;
+                    }
+                } else {
+                    // Se não há direitos salvos, redireciona para login
+                    next({ path: '/' });
+                    return;
+                }
+            }
             next();
         }
     } else {

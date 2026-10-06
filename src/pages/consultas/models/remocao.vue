@@ -18,6 +18,7 @@
             <template #append>
               <v-btn 
                 size="small" 
+                class="map-selection-button"
                 :color="(modoSelecao.ativo || mapSelectionState.isActive) && (modoSelecao.tipo === 'origem' || mapSelectionState.type === 'origem') ? 'orange' : 'primary'"
                 :variant="(modoSelecao.ativo || mapSelectionState.isActive) && (modoSelecao.tipo === 'origem' || mapSelectionState.type === 'origem') ? 'flat' : 'flat'"
                 @click="selecionarNoMapa('origem')"
@@ -42,6 +43,7 @@
             <template #append>
               <v-btn 
                 size="small" 
+                class="map-selection-button"
                 :color="(modoSelecao.ativo || mapSelectionState.isActive) && (modoSelecao.tipo === 'destino' || mapSelectionState.type === 'destino') ? 'orange' : 'primary'"
                 :variant="(modoSelecao.ativo || mapSelectionState.isActive) && (modoSelecao.tipo === 'destino' || mapSelectionState.type === 'destino') ? 'flat' : 'flat'"
                 @click="selecionarNoMapa('destino')"
@@ -82,7 +84,7 @@
               <template v-slot:top>
                 <v-toolbar flat density="compact">
                   <v-toolbar-title class="text-subtitle-2">
-                    Endereço: {{ remocao.origem }}
+                    Endereço: {{ remocao.origem }} | Sacas: {{ (totalSacas).toFixed(2) }} 
                   </v-toolbar-title>
                 </v-toolbar>
               </template>
@@ -227,6 +229,13 @@ const modoSelecao = ref({
 const enderecoData = ref([]);
 const empilhadeiras = ref([]);
 
+// Computed para somar todas as sacas dos lotes
+import { computed } from 'vue';
+const totalSacas = computed(() => {
+  if (!enderecoData.value || enderecoData.value.length === 0) return 0;
+  return enderecoData.value.reduce((acc, lote) => acc + (lote.bagSacas || 0), 0);
+});
+
 // Headers da tabela
 const headersRemocao = ref([
   { title: 'Endereço', key: 'enderCod', sortable: true },
@@ -273,7 +282,7 @@ async function enriquecerDadosLote(lote) {
         bagAtuEnder: lote.enderCod,
         bagDestino: '',
         bagPeso: dadosLote.bagKgAtu || 0,
-        bagSacas: dadosLote.bagKgAtu ? Math.round(dadosLote.bagKgAtu / 59) : 0,
+        bagSacas: dadosLote.bagKgAtu ? (dadosLote.bagKgAtu / 59) : 0,
         bagTag: dadosLote.bagTag || lote.bagTag || ''
       };
     }
@@ -485,6 +494,16 @@ onMounted(() => {
 
 .v-btn {
   font-weight: 500;
+}
+
+.map-selection-button {
+  width: 158px !important;
+  min-width: 158px !important;
+  max-width: 158px !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.035em !important;
 }
 
 /* Estilo para as tabelas com scroll */

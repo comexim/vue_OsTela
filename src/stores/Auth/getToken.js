@@ -2,7 +2,7 @@ import { mande } from "mande";
 import { defineStore } from "pinia";
 import CryptoJS from "crypto-js";
 
-const api = mande(`${import.meta.env.VITE_JAVA_API_BASE_URL}/getToken`);
+const api = mande(`http://192.168.1.213:8090/api_wms/getToken`);
 
 export const useToken = defineStore('token', {
     state: () => ({
@@ -25,7 +25,6 @@ export const useToken = defineStore('token', {
 
                 return response;
             } catch (error) {
-                console.error("Erro ao obter token:", error);
                 return null;
             }
         },
@@ -34,8 +33,8 @@ export const useToken = defineStore('token', {
             try {
                 const nodeApi = mande(`${import.meta.env.VITE_NODE_API_BASE_URL}/getToken`);
                 const response = await nodeApi.post({
-                    username: import.meta.env.VITE_TOKEN_LOGIN,
-                    password: import.meta.env.VITE_TOKEN_SENHA
+                    login: import.meta.env.VITE_TOKEN_LOGIN,
+                    senha: import.meta.env.VITE_TOKEN_SENHA
                 });
                 const secretKey = import.meta.env.VITE_SECRET_KEY;
                 this.nodeTokenData = response;
@@ -45,7 +44,6 @@ export const useToken = defineStore('token', {
 
                 return response;
             } catch (error) {
-                console.error(`Erro ao obter token para a rota token node:`, error);
                 return null;
             }
         }

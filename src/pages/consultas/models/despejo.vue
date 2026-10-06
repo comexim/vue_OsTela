@@ -13,6 +13,7 @@
 					variant="outlined"
 					density="compact"
 					class="mb-3"
+					autocomplete="off"
 					@input="onOpInput"
 				></v-text-field>
 				<!-- Lote -->
@@ -23,6 +24,7 @@
 					variant="outlined"
 					density="compact"
 					class="mb-3"
+					autocomplete="off"
 					@input="onLoteInput"
 				></v-text-field>
 				<!-- Botão Buscar -->
@@ -49,16 +51,19 @@
 							item-value="id"
 							show-select
 							density="compact"
-							class="elevation-1 mb-3"
+							class="despejo-table elevation-1 mb-3"
 							hide-default-footer
 							:items-per-page="-1"
 						>
 							<template v-slot:top>
-								<v-toolbar flat density="compact">
-									<v-toolbar-title class="text-subtitle-2">
-										OP: {{ despejo.op }} - Lote: {{ despejo.lote }}
-									</v-toolbar-title>
+								<v-toolbar flat density="compact" class="despejo-summary">
+															<v-toolbar-title class="text-subtitle-2">
+																OP: {{ despejo.op }} - Lote: {{ despejo.lote }} | Sacas: {{ totalSacas.toFixed(2) }}
+															</v-toolbar-title>
 								</v-toolbar>
+							</template>
+							<template v-slot:item.bagTag="{ item }">
+								<span class="tag-value">{{ item.bagTag?.slice(-6) || '-' }}</span>
 							</template>
 						</v-data-table>
 					</div>
@@ -156,7 +161,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineEmits } from 'vue';
+import { ref, onMounted, defineEmits, computed } from 'vue';
+// Computed para somar todas as sacas dos endereços encontrados
+const totalSacas = computed(() => {
+	if (!movEnderData.value || movEnderData.value.length === 0) return 0;
+	return movEnderData.value
+		.filter(item => despejo.value.enderecosSelecionados.includes(item.id))
+		.reduce((acc, item) => acc + ((item.bagKgAtu || 0) / 59), 0);
+});
+
 import { enderColor } from '../../../stores/Consultas/getEnderColor'; 
 import { empilhadeira } from '../../../stores/Consultas/getEmpilhadeira';
 import { moegas } from '../../../stores/Consultas/getMoega';
@@ -202,26 +215,10 @@ const listamoegas = ref([]);
 
 // Headers das tabelas
 const headersDespejo = ref([
-	{ title: 'Endereço', key: 'enderCod', sortable: true },
-	{ title: 'Lote', key: 'bagLote', sortable: false }
+	{ title: 'Endereço', key: 'enderCod', sortable: true, width: '74px' },
+	{ title: 'Lote', key: 'bagLote', sortable: false, width: '112px' },
+	{ title: 'Tag', key: 'bagTag', sortable: false, width: '66px' }
 ]);
-
-// Função para converter enderecoCod em parâmetros
-function parseEnderecoCod(cod) {
-	const match = cod.match(/^([0-9]+)([A-Z])([0-9]+)$/);
-	if (match) {
-		return {
-			bloco: match[1],
-			quadra: match[2],
-			posicao: match[3]
-		};
-	}
-	return {
-		bloco: cod.substring(0, 3),
-		quadra: cod.substring(3, 4),
-		posicao: cod.substring(4, 6)
-	};
-}
 
 // Função para enriquecer dados do lote com informações da API getListaBag
 async function enriquecerDadosLote(lote) {
@@ -282,30 +279,71 @@ const onLoteInput = () => {
 	}
 };
 
+const normalizarTexto = (valor) => String(valor || '').trim().toUpperCase();
+
+const extrairLista = (response) => {
+	if (Array.isArray(response)) return response;
+	if (Array.isArray(response?.data)) return response.data;
+	if (Array.isArray(response?.items)) return response.items;
+	if (Array.isArray(response?.listaBag)) return response.listaBag;
+	return [];
+};
+
+const converterBagParaEndereco = (item, index) => ({
+	...item,
+	enderCod: item.enderCod || item.bagAtuEnder || '',
+	bagLote: item.bagLote || despejo.value.lote,
+	bagTag: item.bagTag || item.enderTag || '',
+	bagKgAtu: Number(item.bagKgAtu || 0),
+	id: `${item.enderCod || item.bagAtuEnder || ''}-${item.bagLote || despejo.value.lote}-${item.bagTag || index}`
+});
+
 // Funções do Despejo
 const buscarDados = async () => {
 	loadingBuscar.value = true;
 	try {
 		const params = {};
-		if (despejo.value.op) params.op = despejo.value.op;
-		if (despejo.value.lote) params.lote = despejo.value.lote;
+		if (despejo.value.op?.trim()) params.op = despejo.value.op.trim();
+		if (despejo.value.lote?.trim()) params.lote = despejo.value.lote.trim();
 		if (!params.op && !params.lote) {
 			movEnderData.value = [];
-			loadingBuscar.value = false;
 			return;
 		}
-		const response = await enderColorStore.enderColor(params);
-		if (response) {
-			// Mapeia os dados e adiciona um ID único para cada item
-			const dadosBasicos = (Array.isArray(response) ? response : [response]).map((item, index) => ({
+
+		let dadosBasicos = [];
+
+		if (params.lote) {
+			const listaBagResponse = await listaBagStore.listaBag({ lote: params.lote });
+			const lotePesquisado = normalizarTexto(params.lote);
+			const bagsDoLote = extrairLista(listaBagResponse)
+				.filter(item => normalizarTexto(item.bagLote || params.lote) === lotePesquisado)
+				.filter(item => item.enderCod || item.bagAtuEnder)
+				.map(converterBagParaEndereco);
+
+			if (bagsDoLote.length > 0) {
+				dadosBasicos = bagsDoLote;
+			} else {
+				const enderColorResponse = await enderColorStore.enderColor(params);
+				dadosBasicos = extrairLista(enderColorResponse).map((item, index) => ({
+					...item,
+					bagTag: item.bagTag || item.enderTag || '',
+					id: `${item.enderCod}-${item.bagLote || params.lote}-${index}`
+				}));
+			}
+		} else {
+			const enderColorResponse = await enderColorStore.enderColor(params);
+			dadosBasicos = extrairLista(enderColorResponse).map((item, index) => ({
 				...item,
 				id: `${item.enderCod}-${item.bagLote || ''}-${index}`
 			}));
-			
+		}
+
+		if (dadosBasicos.length > 0) {
+			// Mapeia os dados e adiciona um ID único para cada item
 			// Enriquece cada lote com dados da API getListaBag (apenas se tiver bagLote)
 			const dadosEnriquecidos = await Promise.all(
 				dadosBasicos.map(async (lote) => {
-					if (lote.bagLote) {
+					if (lote.bagLote && (!lote.bagTag || !lote.bagKgAtu)) {
 						return await enriquecerDadosLote(lote);
 					}
 					return lote;
@@ -356,13 +394,26 @@ const carregarMoegas = async () => {
 };
 
 const gerarOrdemDespejo = async () => {
-	if (!despejo.value.empilhadeira || despejo.value.enderecosSelecionados.length === 0) {
-		console.warn('Empilhadeira e pelo menos um endereço são obrigatórios');
+	// Validação da empilhadeira (sempre obrigatória)
+	if (!despejo.value.empilhadeira) {
+		console.warn('Empilhadeira é obrigatória');
 		mensagemResultado.value = {
 			mostrar: true,
 			tipo: 'error',
 			titulo: 'Erro de Validação!',
-			texto: 'Empilhadeira e pelo menos um endereço são obrigatórios'
+			texto: 'Empilhadeira é obrigatória'
+		};
+		return;
+	}
+
+	// Para despejo por Lote, endereços selecionados são obrigatórios
+	if (despejo.value.lote && despejo.value.enderecosSelecionados.length === 0) {
+		console.warn('Para despejo por Lote, pelo menos um endereço deve ser selecionado');
+		mensagemResultado.value = {
+			mostrar: true,
+			tipo: 'error',
+			titulo: 'Erro de Validação!',
+			texto: 'Para despejo por Lote, pelo menos um endereço deve ser selecionado'
 		};
 		return;
 	}
@@ -398,16 +449,32 @@ const gerarOrdemDespejo = async () => {
 
 		if (despejo.value.op) {
 			// Formato para OP
-			const enderecosParaEnvio = movEnderData.value
-				.filter(item => despejo.value.enderecosSelecionados.includes(item.id))
-				.map(item => ({
-					EnderCod: item.enderCod
-				}));
+			// Pega a moega selecionada (primeira, se múltipla)
+			const moegaSelecionada = despejo.value.moegas && despejo.value.moegas.length > 0
+				? obterDescricaoMoega(despejo.value.moegas[0])
+				: null;
 
+			// Se não houver moega selecionada, retorna erro
+			if (!moegaSelecionada) {
+				mensagemResultado.value = {
+					mostrar: true,
+					tipo: 'error',
+					titulo: 'Erro de Validação!',
+					texto: 'Selecione uma Moega para enviar a ordem de despejo por OP.'
+				};
+				loadingGerarOrdem.value = false;
+				return;
+			}
+
+			// Monta o payload conforme solicitado
 			const payloadOP = {
 				op: despejo.value.op,
 				empicod: despejo.value.empilhadeira,
-				listaEnder: enderecosParaEnvio
+				listaEnder: [
+					{
+						EnderCod: moegaSelecionada
+					}
+				]
 			};
 
 			console.log('Enviando dados da OP:', JSON.stringify(payloadOP, null, 2));
@@ -429,7 +496,7 @@ const gerarOrdemDespejo = async () => {
 					ItOsObs: "",
 					ItOsPeso: item.bagKgAtu || "",
 					ItOsTagBag: item.bagTag || "",
-					Lote: despejo.value.lote,
+					Lote: item.bagLote,
 					MotCod: "",
 					OpTck: "",
 					OSID: "",
@@ -530,8 +597,40 @@ onMounted(() => {
 	font-weight: 500;
 }
 .table-scroll {
+	width: 100%;
+	max-width: 100%;
 	max-height: 300px;
 	overflow-y: auto;
 	overflow-x: hidden;
+}
+.despejo-table :deep(th),
+.despejo-table :deep(td) {
+	padding-left: 3px !important;
+	padding-right: 3px !important;
+	white-space: nowrap !important;
+}
+.despejo-table :deep(table) {
+	width: 100% !important;
+	table-layout: fixed;
+}
+.despejo-table :deep(tbody td) {
+	font-size: 0.78rem;
+}
+.despejo-summary {
+	position: sticky;
+	top: 0;
+	z-index: 4;
+	background-color: white;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+.despejo-table :deep(.v-data-table-column--select) {
+	width: 32px !important;
+	min-width: 32px !important;
+	max-width: 32px !important;
+}
+.tag-value {
+	display: block;
+	font-size: 0.78rem;
+	white-space: nowrap;
 }
 </style>

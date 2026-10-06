@@ -1,8 +1,48 @@
 ﻿<template>
   <div class="map-container">
+    <!-- Janela de Ajuste de Tamanho (apenas para usuários específicos) -->
+    <v-card
+      v-if="showSizeControl"
+      class="size-control-panel"
+    >
+      <v-card-title class="pa-2 text-caption">
+        <v-icon size="small" class="mr-1">mdi-ruler</v-icon>
+        Ajuste do Mapa
+      </v-card-title>
+      <v-card-text class="pa-2">
+        <div class="control-grid">
+          <div class="control-item">
+            <label>Offset X:</label>
+            <input type="number" v-model.number="ajustes.offsetX" step="1" />
+          </div>
+          <div class="control-item">
+            <label>Offset Y:</label>
+            <input type="number" v-model.number="ajustes.offsetY" step="1" />
+          </div>
+          <div class="control-item">
+            <label>Ajuste Y Extra:</label>
+            <input type="number" v-model.number="ajustes.ajusteYExtra" step="1" />
+          </div>
+          <div class="control-item">
+            <label>Scale X:</label>
+            <input type="number" v-model.number="ajustes.scaleX" step="0.01" />
+          </div>
+          <div class="control-item">
+            <label>Scale Y:</label>
+            <input type="number" v-model.number="ajustes.scaleY" step="0.01" />
+          </div>
+          <div class="control-item">
+            <label>Largura:</label>
+            <input type="number" v-model.number="ajustes.widthAdd" step="1" />
+          </div>
+        </div>
+      </v-card-text>
+    </v-card>
+
     <!-- Container da Imagem do Mapa -->
     <div 
       class="image-container" 
+      :class="{ 'wms-open': wmsOpen }"
       ref="imageContainer"
     >
       <v-img
@@ -16,7 +56,11 @@
       <div 
         v-if="imageLoaded" 
         class="squares-container"
-        :style="{ width: renderedWidth + 'px', height: renderedHeight + 'px' }"
+        :style="{ 
+          width: renderedWidth + 'px', 
+          height: renderedHeight + 'px',
+          transform: `scaleX(${ajustes.scaleX}) scaleY(${ajustes.scaleY})`
+        }"
       >
         <div
           v-for="item in enderColors"
@@ -61,10 +105,89 @@
 
 <script setup>
 import GalpaoImg from '@/assets/Galpao.png';
-import { ref, onMounted, nextTick, defineProps, defineEmits } from 'vue';
+import {
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  onActivated,
+  nextTick
+} from 'vue';
 import { enderColor } from '../../../stores/Consultas/getEnderColor';
 import { useMapSelection } from '../../../composables/useMapSelection';
 import EnderecoDetails from '../models/enderecoDetals.vue';
+
+const userName = localStorage.getItem('user');
+
+// Usuários que podem ver o controle de tamanho
+const allowedUsers = [''];
+const showSizeControl = ref(allowedUsers.includes(userName));
+
+// Configurações fixas por usuário
+const getUserDefaultAjustes = () => {
+  const configs = {
+    'maycon': {
+      offsetX: 102,
+      offsetY: 702,
+      ajusteYExtra: 2,
+      scaleX: 0.87,
+      scaleY: 1.13,
+      widthAdd: 2
+    },
+    'savio': {
+      offsetX: 102,
+      offsetY: 702,
+      ajusteYExtra: 2,
+      scaleX: 0.87,
+      scaleY: 1.13,
+      widthAdd: 2
+    },
+    'RICARDO': {
+      offsetX: 32,
+      offsetY: 743,
+      ajusteYExtra: 7,
+      scaleX: 0.96,
+      scaleY: 1.2,
+      widthAdd: 3
+    }
+  };
+  
+  // Retorna configuração do usuário ou valores padrão
+  return configs[userName] || {
+    offsetX: 30,
+    offsetY: 750,
+    ajusteYExtra: 7,
+    scaleX: 0.98,
+    scaleY: 1.2,
+    widthAdd: 2
+  };
+};
+
+// Controles de ajuste do mapa (reativos)
+const ajustes = ref(getUserDefaultAjustes());
+
+// Configurações de ajuste por usuário
+const userAdjustmentConfigs = {
+  'Marco': {
+    iniciais: ['620', '540', '450', '250', '240', '460', '550', '630', '440', '150'],
+    ajusteY: 7
+  },
+  'lucasO': {
+    iniciais: ['620', '540', '450','630','550','460','250','150','240'],
+    ajusteY: 6
+  },
+  // Adicione mais usuários conforme necessário
+};
+
+// Pega a configuração do usuário atual ou usa valores padrão
+const getUserAdjustment = () => {
+  const config = userAdjustmentConfigs[userName] || {
+    iniciais: ['620', '540', '450', '250', '240', '460', '550', '630', '440', '150'],
+    ajusteY: 7
+  };
+  console.log('userName:', userName);
+  console.log('Config aplicada:', config);
+  return config;
+};
 
 // Props
 const props = defineProps({
@@ -87,6 +210,10 @@ const props = defineProps({
   filteredEnderCods: {
     type: Array,
     default: () => []
+  },
+  wmsOpen: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -107,6 +234,10 @@ const enderColors = ref([]);
 const imageLoaded = ref(false);
 const renderedWidth = ref(0);
 const renderedHeight = ref(0);
+let resizeObserver = null;
+let dimensionUpdateFrame = null;
+let dimensionRetryTimeout = null;
+let observedImgElement = null;
 
 //Modal
 const showModal = ref(false);
@@ -114,33 +245,111 @@ const selectedEndereco = ref(null);
 
 // Métodos principais
 async function loadEnderColor() {
-        const response = await enderColorStore.enderColor();
-        console.log('Dados da API:', response);
-        enderColors.value = response.map(item => ({
-            cor: item.cor,
-            x1: item.enderWebX1,
-            x2: item.enderWebX2,
-            y1: item.enderWebY1,
-            y2: item.enderWebY2,
-            cod: item.enderCod,
-            tag: item.enderTag,
-            status: item.enderStatus,
-            sacas: item.enderSacas
-        }));
+  const response = await enderColorStore.enderColor();
+  const data = Array.isArray(response)
+    ? response
+    : enderColorStore.enderCodData;
+
+  if (!Array.isArray(data)) {
+    console.error('Não foi possível carregar os endereços do mapa.');
+    return;
+  }
+
+  enderColors.value = data.map(item => ({
+    cor: item.cor,
+    x1: item.enderWebX1,
+    x2: item.enderWebX2,
+    y1: item.enderWebY1,
+    y2: item.enderWebY2,
+    cod: item.enderCod,
+    tag: item.enderTag,
+    status: item.enderStatus,
+    sacas: item.enderSacas
+  }));
 }
 
 function onImageLoad() {
-  imageLoaded.value = true;
-  nextTick(() => {
-    if (galpaoImage.value && galpaoImage.value.$el) {
-      const imgElement = galpaoImage.value.$el.querySelector('img');
-      if (imgElement) {
-        renderedWidth.value = imgElement.clientWidth;
-        renderedHeight.value = imgElement.clientHeight;
-        console.log('Dimensões da imagem:', renderedWidth.value, renderedHeight.value);
+  scheduleImageDimensionUpdate();
+}
+
+function updateImageDimensions() {
+  if (galpaoImage.value && galpaoImage.value.$el) {
+    const imgElement = galpaoImage.value.$el.querySelector('img');
+    if (imgElement && imgElement.complete && imgElement.naturalWidth > 0) {
+      const { width, height } = imgElement.getBoundingClientRect();
+
+      if (width > 0 && height > 0) {
+        renderedWidth.value = width;
+        renderedHeight.value = height;
+        imageLoaded.value = true;
+        return true;
       }
     }
+  }
+
+  return false;
+}
+
+function clearDimensionRetry() {
+  if (dimensionRetryTimeout) {
+    clearTimeout(dimensionRetryTimeout);
+    dimensionRetryTimeout = null;
+  }
+}
+
+function scheduleImageDimensionUpdate(attempts = 20) {
+  if (dimensionUpdateFrame) {
+    cancelAnimationFrame(dimensionUpdateFrame);
+  }
+
+  dimensionUpdateFrame = requestAnimationFrame(() => {
+    dimensionUpdateFrame = null;
+    const updated = updateImageDimensions();
+
+    if (!updated && attempts > 0) {
+      clearDimensionRetry();
+      dimensionRetryTimeout = setTimeout(() => {
+        scheduleImageDimensionUpdate(attempts - 1);
+      }, 100);
+    }
   });
+}
+
+function handleDimensionChange() {
+  scheduleImageDimensionUpdate();
+}
+
+async function setupImageMeasurement() {
+  await nextTick();
+
+  if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(handleDimensionChange);
+  }
+
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+
+    if (imageContainer.value) {
+      resizeObserver.observe(imageContainer.value);
+    }
+
+    if (galpaoImage.value?.$el) {
+      resizeObserver.observe(galpaoImage.value.$el);
+
+      const imgElement = galpaoImage.value.$el.querySelector('img');
+      if (imgElement) {
+        resizeObserver.observe(imgElement);
+
+        if (observedImgElement !== imgElement) {
+          observedImgElement?.removeEventListener('load', onImageLoad);
+          observedImgElement = imgElement;
+          observedImgElement.addEventListener('load', onImageLoad);
+        }
+      }
+    }
+  }
+
+  scheduleImageDimensionUpdate();
 }
 
 function getSquareStyle(item) {
@@ -181,17 +390,21 @@ function getSquareStyle(item) {
   const filtroAtivo = props.filteredEnderCods.length > 0 && props.filteredEnderCods.length < enderColors.value.length;
   const isFiltered = filtroAtivo && props.filteredEnderCods.includes(item.cod);
 
+  // Ajuste especial para endereços que começam com números específicos (baseado no usuário)
+  const userConfig = getUserAdjustment();
+  const codString = String(item.cod);
+  const ajusteY = userConfig.iniciais.some(inicial => codString.startsWith(inicial)) ? ajustes.value.ajusteYExtra : 0;
+
   return {
-    left: `${x1 - 30}px`,
-    top: `${y1 - 750}px`,
-    width: `${width + 2}px`,
-    height: `${height + 2}px`,
+    left: `${x1 - ajustes.value.offsetX}px`,
+    top: `${y1 - ajustes.value.offsetY + ajusteY}px`,
+    width: `${width + ajustes.value.widthAdd}px`,
+    height: `${height + ajustes.value.widthAdd}px`,
     backgroundColor: isFiltered ? '#000000' : `rgb(${r}, ${g}, ${b})`,
     border: "1px solid white",
     borderRadius: "2px",
     position: "absolute",
     opacity: isFiltered ? 1.0 : 0.7,
-    cursor: isSelectionMode ? "crosshair" : "pointer",
     zIndex: isFiltered ? 10: 1,
   };
 }
@@ -201,6 +414,18 @@ function handleSquareClick(item) {
   
   // Se há uma seleção ativa no estado global, usa ela
   if (mapSelectionState.isActive) {
+    if (mapSelectionState.type === 'destino') {
+      const destinoLivre = encontrarPrimeiroNivelLivre(item.cod);
+
+      if (!destinoLivre) {
+        window.alert('Não há posição livre de A até D neste endereço.');
+        return;
+      }
+
+      selectAddress(destinoLivre);
+      return;
+    }
+
     selectAddress(item.cod);
     return;
   }
@@ -219,13 +444,57 @@ function handleSquareClick(item) {
   showModal.value = true;
 }
 
+function encontrarPrimeiroNivelLivre(enderCod) {
+  const codigo = String(enderCod || '').trim().toUpperCase();
+  if (!codigo) return null;
+
+  const possuiNivel = /[A-D]$/.test(codigo);
+  if (!possuiNivel) {
+    const endereco = enderColors.value.find(item => item.cod === codigo);
+    return String(endereco?.status || '').trim().toUpperCase() === 'LV' ? codigo : null;
+  }
+
+  const prefixo = codigo.slice(0, -1);
+  const ordemNiveis = ['A', 'B', 'C', 'D'];
+
+  const primeiroLivre = enderColors.value
+    .filter(item => {
+      const codigoItem = String(item.cod || '').trim().toUpperCase();
+      return codigoItem.slice(0, -1) === prefixo
+        && ordemNiveis.includes(codigoItem.slice(-1))
+        && String(item.status || '').trim().toUpperCase() === 'LV';
+    })
+    .sort((a, b) => {
+      const nivelA = String(a.cod).trim().toUpperCase().slice(-1);
+      const nivelB = String(b.cod).trim().toUpperCase().slice(-1);
+      return ordemNiveis.indexOf(nivelA) - ordemNiveis.indexOf(nivelB);
+    })[0];
+
+  return primeiroLivre?.cod || null;
+}
+
 function closeModal() {
   showModal.value = false;
   selectedEndereco.value = null;
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadEnderColor();
+  window.addEventListener('resize', handleDimensionChange);
+  await setupImageMeasurement();
+});
+
+onActivated(setupImageMeasurement);
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleDimensionChange);
+  resizeObserver?.disconnect();
+  observedImgElement?.removeEventListener('load', onImageLoad);
+  clearDimensionRetry();
+
+  if (dimensionUpdateFrame) {
+    cancelAnimationFrame(dimensionUpdateFrame);
+  }
 });
 
 </script>
@@ -238,19 +507,26 @@ onMounted(() => {
   position: relative;
   overflow: hidden;
   margin-bottom: -2230px;
+  margin-left: 110px;
   padding-bottom: 0;
 }
 
 /* Container da imagem */
 .image-container {
   position: relative;
-  width: 100%;
+  width: 84%;
   height: auto;
   display: block;
   transition: transform 0.3s ease;
   cursor: default;
   margin-bottom: 0;
   line-height: 0;
+  will-change: transform;
+}
+
+/* Classe aplicada quando WMS está aberto */
+.image-container.wms-open {
+  transform: translateX(200px);
 }
 
 /* Imagem do galpão */
@@ -260,6 +536,7 @@ onMounted(() => {
   object-fit: contain;
   border-radius: 12px;
   display: block;
+  transform: scale(1) scaleY(0.99);
   margin: 0;
   padding: 0;
 }
@@ -270,7 +547,6 @@ onMounted(() => {
   top: 0;
   left: 0;
   pointer-events: none;
-  transform: scaleX(0.98) scaleY(1.2);
   transform-origin: top;
   overflow: visible;
   margin-bottom: -100px;
@@ -306,7 +582,7 @@ onMounted(() => {
 /* Desktop/PC */
 @media (min-width: 1200px) {
 	.squares-container {
-    margin-bottom: -100px;
+    margin-bottom: 150px;
   }
 }
 
@@ -322,5 +598,51 @@ onMounted(() => {
 /* Estados especiais dos quadrados */
 .color-square:active {
   transform: scale(0.95);
+}
+
+/* Painel de controle de tamanho */
+.size-control-panel {
+  position: fixed;
+  top: 70px;
+  left: 20px;
+  z-index: 2000;
+  min-width: 280px;
+  max-width: 320px;
+  background-color: white !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-radius: 8px;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.control-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.control-item label {
+  font-size: 10px;
+  font-weight: 500;
+  color: #666;
+}
+
+.control-item input {
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 11px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.control-item input:focus {
+  outline: none;
+  border-color: #1976d2;
 }
 </style>

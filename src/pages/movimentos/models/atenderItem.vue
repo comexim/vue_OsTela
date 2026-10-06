@@ -1,11 +1,11 @@
-<template>
+﻿<template>
   <!-- ===================================
        MODAL DE ATENDIMENTO DE ITEM
        ===================================
        Modal responsivo para atendimento de itens de OS
        com seleção de posição e execução de movimentação
   -->
-  <v-dialog v-model="dialogVisible" max-width="900px" persistent>
+  <v-dialog v-model="dialogVisible" max-width="1400px" persistent>
     <v-card>
       <!-- Header do Modal -->
       <v-card-title class="pa-3 bg-teal text-white d-flex align-center">
@@ -23,7 +23,7 @@
              ===================================
              Exibe dados readonly do item selecionado
         -->
-        <v-card class="mb-4" elevation="2">
+        <v-card class="mb-4" elevation="2" height="300px">
           <v-card-subtitle class="pa-3 bg-grey-lighten-4">
             <v-icon class="mr-2">mdi-information-outline</v-icon>
             Informações do Item Selecionado
@@ -31,7 +31,7 @@
           <v-card-text class="pa-4">
             <!-- Linha 1: OS e Item -->
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="3">
                 <v-text-field
                   label="OS"
                   :model-value="itemData.osid || '-'"
@@ -40,7 +40,7 @@
                   density="compact"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="3">
                 <v-text-field
                   label="Item"
                   :model-value="itemData.itOSItem || '-'"
@@ -49,11 +49,7 @@
                   density="compact"
                 />
               </v-col>
-            </v-row>
-            
-            <!-- Linha 2: Lote e Origem -->
-            <v-row>
-              <v-col cols="12" md="6">
+                            <v-col cols="12" md="3">
                 <v-text-field
                   label="Lote"
                   :model-value="itemData.lote || '-'"
@@ -62,7 +58,7 @@
                   density="compact"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="3">
                 <v-text-field
                   label="Origem"
                   :model-value="itemData.itOsOrigem || '-'"
@@ -75,7 +71,7 @@
 
             <!-- Linha 3: Destino e Bag -->
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="3">
                 <v-text-field
                   label="Destino"
                   :model-value="itemData.itOsDestino || '-'"
@@ -84,7 +80,7 @@
                   density="compact"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="3">
                 <v-text-field
                   label="Bag"
                   :model-value="itemData.itOsTagBag || '-'"
@@ -93,11 +89,7 @@
                   density="compact"
                 />
               </v-col>
-            </v-row>
-
-            <!-- Linha 4: Empilhadeira e Motorista -->
-            <v-row>
-              <v-col cols="12" md="6">
+                            <v-col cols="12" md="3">
                 <v-text-field
                   label="Empilhadeira"
                   :model-value="itemData.itOsEmpiCod || '-'"
@@ -106,7 +98,7 @@
                   density="compact"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="3">
                 <v-text-field
                   label="Motorista"
                   :model-value="itemData.itOsMotCod || '-'"
@@ -116,6 +108,7 @@
                 />
               </v-col>
             </v-row>
+
 
             <!-- Linha 5: Data, Hora e Peso -->
             <v-row>
@@ -156,10 +149,6 @@
              Seleção de posição e tipo de movimentação
         -->
         <v-card elevation="2">
-          <v-card-subtitle class="pa-3 bg-grey-lighten-4">
-            <v-icon class="mr-2">mdi-map-marker</v-icon>
-            Configurações de Atendimento
-          </v-card-subtitle>
           <v-card-text class="pa-4">
             <!-- Loading de posições -->
             <div v-if="loadingPosicoes" class="text-center py-4">
@@ -472,6 +461,9 @@ const carregarPosicoes = async () => {
     }
     
     posicoesOptions.value = posicoes;
+
+    // Define 01A como posição padrão
+    posicaoSelecionada.value = '01A';
     
     // Log para debug - IMPORTANTE: mostra posições carregadas
     console.log('📍 [POSIÇÕES] Carregadas com sucesso:', posicoesOptions.value.length, 'posições');

@@ -1,9 +1,16 @@
+<!--
+  Modal de Exclusão de Serviços
+  
+  Este componente permite ao usuário excluir um item específico de uma ordem de serviço.
+  Funciona de forma similar ao alterarServico, mas remove o item selecionado da lista
+  e reenvia todos os outros itens para a API.
+-->
 <template>
-  <v-dialog v-model="dialogVisible" max-width="600px" persistent>
+  <v-dialog v-model="dialogVisible" max-width="800px" persistent>
     <v-card>
       <v-card-title class="pa-1 bg-error text-white d-flex align-center">
-        <v-icon class="mr-2">mdi-delete-alert</v-icon>
-        <h4>Excluir Ordem de Serviço</h4>
+        <v-icon class="mr-2">mdi-delete</v-icon>
+        <h4>Excluir Item da Ordem de Serviço</h4>
         <v-spacer></v-spacer>
         <v-btn icon variant="text" @click="fecharModal" size="small">
           <v-icon>mdi-close</v-icon>
@@ -20,7 +27,7 @@
             </h6>
             
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="4">
                 <v-text-field
                   label="OS/Ticket"
                   :model-value="dadosOrdemServico.opTck || '-'"
@@ -29,10 +36,19 @@
                   density="compact"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="4">
                 <v-text-field
                   label="Status"
                   :model-value="dadosOrdemServico.itOSStatus || '-'"
+                  readonly
+                  variant="outlined"
+                  density="compact"
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  label="Data"
+                  :model-value="formatarDataParaFormulario(dadosOrdemServico.itOSData) || '-'"
                   readonly
                   variant="outlined"
                   density="compact"
@@ -42,62 +58,47 @@
           </v-card-text>
         </v-card>
 
-        <!-- Lista de itens selecionados -->
-        <v-card elevation="2">
+        <!-- Itens que serão excluídos -->
+        <v-card class="mb-4" elevation="2" v-if="itemParaExcluir && itemParaExcluir.length > 0">
           <v-card-text class="pa-4">
             <h6 class="text-h6 mb-3 text-error">
-              <v-icon class="mr-2">mdi-format-list-bulleted</v-icon>
-              Itens a serem excluídos
+              <v-icon class="mr-2">mdi-delete-alert</v-icon>
+              {{ totalItensExcluir }} item(ns) que será(ão) excluído(s)
             </h6>
+            
+            <v-alert type="warning" class="mb-4">
+              <div class="d-flex align-center">
+                <v-icon class="mr-2">mdi-alert-circle</v-icon>
+                <span>{{ totalItensExcluir === 1 ? 'Este item será removido' : 'Estes itens serão removidos' }} permanentemente da ordem de serviço.</span>
+              </div>
+            </v-alert>
 
-            <div v-if="itensParaExcluir.length === 0" class="text-center py-4">
-              <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-inbox</v-icon>
-              <p class="text-grey">Nenhum item selecionado para exclusão</p>
-            </div>
-
-            <v-list v-else class="border rounded">
-              <v-list-item
-                v-for="(item, index) in itensParaExcluir"
-                :key="index"
-                class="border-b"
-              >
-                <template v-slot:prepend>
-                  <v-icon color="error" class="mr-3">mdi-delete</v-icon>
-                </template>
-
-                <v-list-item-title>
-                  <strong>Item {{ item.itOSItem }}</strong>
-                </v-list-item-title>
-                
-                <v-list-item-subtitle>
-                  <div class="d-flex flex-wrap gap-2 mt-1">
-                    <v-chip size="small" color="primary" variant="outlined">
-                      <v-icon start>mdi-calendar</v-icon>
-                      {{ formatarData(item.itOSData) }}
-                    </v-chip>
-                    <v-chip size="small" color="info" variant="outlined">
-                      <v-icon start>mdi-weight</v-icon>
-                      {{ formatarPeso(item.itOsPeso) }} kg
-                    </v-chip>
-                    <v-chip size="small" color="success" variant="outlined">
-                      <v-icon start>mdi-tag</v-icon>
-                      {{ item.itOsTagBag?.slice(-6) || '-' }}
-                    </v-chip>
-                  </div>
-                  <div class="mt-1">
-                    <small class="text-grey-darken-1">
-                      De: <strong>{{ item.itOsOrigem }}</strong> → 
-                      Para: <strong>{{ item.itOsDestino }}</strong>
-                    </small>
-                  </div>
-                </v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
+            <!-- Tabela com os itens a excluir -->
+            <v-table density="compact" class="mb-2">
+              <thead>
+                <tr>
+                  <th class="text-left">Item</th>
+                  <th class="text-left">Tag Bag</th>
+                  <th class="text-left">Lote</th>
+                  <th class="text-left">Peso (kg)</th>
+                  <th class="text-left">Origem → Destino</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in itemParaExcluir" :key="item.itOSItem">
+                  <td class="text-error font-weight-bold">{{ item.itOSItem }}</td>
+                  <td>{{ item.itOsTagBag || '-' }}</td>
+                  <td>{{ item.lote || '-' }}</td>
+                  <td>{{ formatarPeso(item.itOsPeso) }}</td>
+                  <td>{{ item.itOsOrigem || '-' }} → {{ item.itOsDestino || '-' }}</td>
+                </tr>
+              </tbody>
+            </v-table>
           </v-card-text>
         </v-card>
 
-        <!-- Mensagem durante exclusão -->
-        <v-alert v-if="excluindo" type="info" class="mt-4">
+        <!-- Mensagem durante processamento -->
+        <v-alert v-if="processando" type="info" class="mt-4">
           <div class="d-flex align-center">
             <v-progress-circular
               indeterminate
@@ -105,7 +106,7 @@
               size="20"
               class="mr-3"
             ></v-progress-circular>
-            <span>Excluindo itens selecionados...</span>
+            <span>Processando exclusão do item...</span>
           </div>
         </v-alert>
       </v-card-text>
@@ -116,7 +117,7 @@
           color="grey"
           variant="outlined"
           @click="fecharModal"
-          :disabled="excluindo"
+          :disabled="processando"
           prepend-icon="mdi-close"
         >
           Cancelar
@@ -125,12 +126,12 @@
           color="error"
           variant="elevated"
           @click="confirmarExclusao"
-          :disabled="itensParaExcluir.length === 0 || excluindo"
-          :loading="excluindo"
+          :disabled="!itemParaExcluir || itemParaExcluir.length === 0 || processando"
+          :loading="processando"
           prepend-icon="mdi-delete"
           class="ml-2"
         >
-          {{ excluindo ? 'Excluindo...' : 'Confirmar Exclusão' }}
+          {{ processando ? 'Excluindo...' : 'Confirmar Exclusão' }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -139,9 +140,9 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { WMSOS } from '../../../stores/Consultas/setWMSOS';
 
-// Props
+// ===== PROPRIEDADES E EMISSÃO DE EVENTOS =====
+
 const props = defineProps({
   modelValue: {
     type: Boolean,
@@ -151,9 +152,9 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
-  itemSelecionado: {
-    type: Object,
-    default: null
+  itensSelecionados: {
+    type: Array,
+    default: () => []
   },
   dadosCompletos: {
     type: Array,
@@ -161,46 +162,40 @@ const props = defineProps({
   }
 });
 
-// Emits
-const emit = defineEmits(['update:modelValue', 'exclusao-concluida', 'erro-exclusao']);
+const emit = defineEmits(['update:modelValue', 'confirmar']);
 
-// Data local
+// ===== VARIÁVEIS REATIVAS =====
+
 const dialogVisible = ref(props.modelValue);
-const excluindo = ref(false);
+const processando = ref(false);
 
-// Store
-const wmsos = WMSOS();
+// ===== PROPRIEDADES COMPUTADAS =====
 
-// Watch para sincronizar o v-model
+const itemParaExcluir = computed(() => {
+  return props.itensSelecionados;
+});
+
+const totalItensExcluir = computed(() => {
+  return props.itensSelecionados.length;
+});
+
+// ===== WATCHERS =====
+
 watch(() => props.modelValue, (newVal) => {
   dialogVisible.value = newVal;
 });
 
 watch(dialogVisible, (newVal) => {
   emit('update:modelValue', newVal);
-  if (!newVal) {
-    // Reset states when closing
-    excluindo.value = false;
-  }
 });
 
-// Computed para obter itens a serem excluídos
-const itensParaExcluir = computed(() => {
-  if (!props.itemSelecionado) return [];
-  // Se vier um array, retorna o array
-  if (Array.isArray(props.itemSelecionado)) {
-    return props.itemSelecionado;
-  }
-  // Se vier um único objeto, retorna como array
-  if (props.itemSelecionado && props.itemSelecionado.itOSItem) {
-    return [props.itemSelecionado];
-  }
-  return [];
-});
+// ===== FUNÇÕES DE FORMATAÇÃO =====
 
-// Funções de formatação
-const formatarData = (value) => {
-  if (!value) return '-';
+/**
+ * Formata data do formato YYYYMMDD para DD/MM/YYYY para o formulário
+ */
+const formatarDataParaFormulario = (value) => {
+  if (!value) return '';
   if (typeof value === 'string' && value.length === 8 && /^\d{8}$/.test(value)) {
     const year = value.substring(0, 4);
     const month = value.substring(4, 6);
@@ -217,80 +212,149 @@ const formatarPeso = (value) => {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-// Função para fechar o modal
-const fecharModal = () => {
-  if (!excluindo.value) {
-    dialogVisible.value = false;
-  }
-};
+// ===== FUNÇÕES DE EXCLUSÃO =====
 
-// Função para confirmar exclusão
-const confirmarExclusao = async () => {
-  if (itensParaExcluir.value.length === 0) {
+/**
+ * Confirma a exclusão dos itens selecionados
+ */
+const confirmarExclusao = () => {
+  if (!itemParaExcluir.value || itemParaExcluir.value.length === 0) {
+    alert('Nenhum item selecionado para exclusão');
     return;
   }
 
-  excluindo.value = true;
+  const totalItens = itemParaExcluir.value.length;
+  const listaItens = itemParaExcluir.value.map(item => item.itOSItem).join(', ');
+  const mensagem = totalItens === 1 
+    ? `Tem certeza que deseja excluir o item ${listaItens}?`
+    : `Tem certeza que deseja excluir ${totalItens} itens (${listaItens})?`;
+
+  if (!confirm(mensagem)) {
+    return;
+  }
+
+  processando.value = true;
 
   try {
-    // Para cada item selecionado, enviar para a API
-    for (const item of itensParaExcluir.value) {
-      const payload = {
-        osid: item.osid || props.dadosOrdemServico.osid,
-        ositem: item.itOSItem
-      };
+    const todosItensOS = props.dadosCompletos.filter(item => 
+      item.osid === props.dadosOrdemServico.osid
+    );
 
-      console.log('Enviando para DELOE:', payload);
-      await wmsos.DELOE(payload);
-    }
-
-    // Emitir evento de sucesso
-    emit('exclusao-concluida', {
-      sucessos: itensParaExcluir.value.length,
-      erros: 0
-    });
-
-    // Fechar modal
-    fecharModal();
-
-  } catch (error) {
-    console.error('Erro ao excluir:', error);
+    const itensNumerosExcluir = itemParaExcluir.value.map(item => item.itOSItem);
     
-    // Emitir evento de erro
-    emit('erro-exclusao', {
-      sucessos: 0,
-      erros: 1,
-      erro: error.message || 'Erro ao excluir itens'
+    const itensRestantes = todosItensOS.filter(item => 
+      !itensNumerosExcluir.includes(item.itOSItem)
+    );
+
+    const osid = props.dadosOrdemServico?.osid || "";
+    const motCod = props.dadosOrdemServico?.motCod || "";
+
+    const todosItens = itensRestantes.map(item => ({
+      osid: item.osid,
+      itOSItem: item.itOSItem,
+      opTck: item.opTck || props.dadosOrdemServico?.opTck || osid,
+      empiCod: item.empiCod || '',
+      motCod: motCod,
+      itOSData: item.itOSData || '',
+      itOSHora: item.itOSHora || '',
+      itOsTagBag: item.itOsTagBag || '',
+      itOsOrigem: item.itOsOrigem || '',
+      itOsTagOrigem: '',
+      itOsDestino: item.itOsDestino || '',
+      itOsTagDestino: item.itOsDestino?.startsWith('M') ? item.itOsDestino : '',
+      itOSStatus: item.itOSStatus || 'AB',
+      lote: item.lote || '',
+      itOsObs: item.itOsObs || '',
+      itOsPeso: parseFloat(item.itOsPeso) || 0,
+      itOsPesoSoltar: parseFloat(item.itOsPesoSoltar) || 0
+    }));
+
+    console.log('✅ Salvando exclusão - Dados preparados:');
+    console.log('🗑️ Itens excluídos:', listaItens);
+    console.log('📊 Total de itens restantes:', todosItens.length);
+
+    emit('confirmar', {
+      itensExcluidos: itemParaExcluir.value,
+      todosItens: todosItens
     });
+
+    dialogVisible.value = false;
+    
+  } catch (error) {
+    console.error('❌ Erro ao processar exclusão:', error);
+    alert(`Erro ao processar exclusão:\n${error.message}`);
   } finally {
-    excluindo.value = false;
+    processando.value = false;
   }
+};
+
+/**
+ * Fecha o modal
+ */
+const fecharModal = () => {
+  dialogVisible.value = false;
 };
 </script>
 
 <style scoped>
-.v-list-item {
-  border-bottom: 1px solid #e0e0e0;
+/* ===== ESTILOS CUSTOMIZADOS ===== */
+
+/* Campo readonly com destaque de erro */
+.text-error {
+  color: #d32f2f !important;
+  font-weight: bold;
 }
 
-.v-list-item:last-child {
-  border-bottom: none;
+/* Campos Readonly */
+.v-text-field--readonly :deep(.v-field__input) {
+  color: #666 !important;
 }
 
-.border {
+/* Tabela de itens a excluir */
+.v-table {
   border: 1px solid #e0e0e0;
+  border-radius: 4px;
 }
 
-.border-b {
-  border-bottom: 1px solid #e0e0e0;
+.v-table thead tr th {
+  background-color: #f5f5f5 !important;
+  font-weight: 600 !important;
+  color: #424242 !important;
 }
 
-.gap-2 {
-  gap: 8px;
+.v-table tbody tr:nth-child(odd) {
+  background-color: #fafafa;
 }
 
-/* Estilo para chips */
-.v-chip {
-  margin: 2px;
+.v-table tbody tr:hover {
+  background-color: #ffebee !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .v-dialog {
+    margin: 16px;
+  }
+}
+
+/* Cards de destaque */
+.v-card {
+  transition: all 0.3s ease;
+}
+
+/* Alertas customizados */
+.v-alert {
+  border-radius: 8px;
+}
+
+/* Botões de ação */
+.v-btn {
+  text-transform: none;
+  font-weight: 500;
+}
+
+/* Ícones com espaçamento */
+.v-icon {
+  margin-right: 8px;
 }
 </style>

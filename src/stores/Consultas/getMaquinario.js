@@ -23,7 +23,7 @@ export const maquinario = defineStore('maquinario', {
                     return { success: false, message: "Token não encontrado!"};
                 }
                 
-                const api = mande(`http://192.168.1.213:9090/api_supervisorio_teste/getMaquinario`);
+                const api = mande(`http://192.168.1.213:8090/api_supervisorio/getMaquinario`);
 
                 const response = await api.get();
                 this.maquinarioData = response;

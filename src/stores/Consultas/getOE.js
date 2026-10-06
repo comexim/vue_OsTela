@@ -11,8 +11,7 @@ export const getOE = defineStore('getOE', {
     actions: {
         async getOE(params = {}) {
             try {
-                console.log("=== getOE API Call ===");
-                console.log("Parâmetros recebidos:", params);
+                this.getOEData = null;
                 
                 const secretKey = import.meta.env.VITE_SECRET_KEY;
                 const tokenStore = useToken();
@@ -25,12 +24,9 @@ export const getOE = defineStore('getOE', {
                     console.error("Token não encontrado, verifique!");
                     return { success: false, message: "Token não encontrado!"};
                 }
-
-                console.log("Fazendo requisição GET com parâmetros:", params);
                 
-                // Constrói a query string manualmente 
                 const queryParams = Object.keys(params)
-                    .map(key => `${key}=${encodeURIComponent(params[key] || '')}`) // Inclui todos os parâmetros, mesmo vazios
+                    .map(key => `${key}=${encodeURIComponent(params[key] || '')}`)
                     .join('&');
                     
                 const url = queryParams ? `?${queryParams}` : '';
@@ -38,13 +34,12 @@ export const getOE = defineStore('getOE', {
                 const api = mande(`${import.meta.env.VITE_JAVA_API_BASE_URL}/getOE${url}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
                     }
                 });
                 
                 const response = await api.get();
-                
-                console.log("Resposta da API ProdPar:", response);
                 this.getOEData = response;
                 
                 return response;

@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   Modal de Inclusão de Serviços
   
   Este componente permite ao usuário incluir novos serviços em uma ordem de serviço.
@@ -27,7 +27,7 @@
               
               <!-- Informações Automáticas: Item, Data e Hora -->
               <v-row class="mb-2">
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Item"
                     v-model="formData.item"
@@ -37,7 +37,7 @@
                     bg-color="grey-lighten-4"
                   />
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Data"
                     v-model="formData.data"
@@ -47,7 +47,7 @@
                     bg-color="grey-lighten-4"
                   />
                 </v-col>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Hora"
                     v-model="formData.hora"
@@ -57,48 +57,7 @@
                     bg-color="grey-lighten-4"
                   />
                 </v-col>
-              </v-row>
-
-              <!-- Dados do Item Selecionado: Tag, Lote e Origem -->
-              <v-row class="mb-2">
-                <v-col cols="12" md="4">
-                  <v-text-field
-                    label="Tag do Bag"
-                    v-model="formData.tagBag"
-                    readonly
-                    variant="outlined"
-                    density="compact"
-                    bg-color="grey-lighten-4"
-                    :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
-                  />
-                </v-col>
-                <v-col cols="12" md="4">
-                  <v-text-field
-                    label="Lote"
-                    v-model="formData.lote"
-                    readonly
-                    variant="outlined"
-                    density="compact"
-                    bg-color="grey-lighten-4"
-                    :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
-                  />
-                </v-col>
-                <v-col cols="12" md="4">
-                  <v-text-field
-                    label="Origem"
-                    v-model="formData.origem"
-                    readonly
-                    variant="outlined"
-                    density="compact"
-                    bg-color="grey-lighten-4"
-                    :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
-                  />
-                </v-col>
-              </v-row>
-
-              <!-- Informações de Peso e Quantidade -->
-              <v-row class="mb-2">
-                <v-col cols="12" md="6">
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Peso (kg)"
                     v-model="formData.peso"
@@ -110,7 +69,44 @@
                     :placeholder="!itemSelecionado ? 'Peso do item selecionado' : ''"
                   />
                 </v-col>
-                <v-col cols="12" md="6">
+              </v-row>
+
+              <!-- Dados do Item Selecionado: Tag, Lote e Origem -->
+              <v-row class="mb-2">
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    label="Tag do Bag"
+                    v-model="formData.tagBag"
+                    readonly
+                    variant="outlined"
+                    density="compact"
+                    bg-color="grey-lighten-4"
+                    :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
+                  />
+                </v-col>
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    label="Lote"
+                    v-model="formData.lote"
+                    readonly
+                    variant="outlined"
+                    density="compact"
+                    bg-color="grey-lighten-4"
+                    :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
+                  />
+                </v-col>
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    label="Origem"
+                    v-model="formData.origem"
+                    readonly
+                    variant="outlined"
+                    density="compact"
+                    bg-color="grey-lighten-4"
+                    :placeholder="itemSelecionado ? '' : 'Selecione um item na pesquisa'"
+                  />
+                </v-col>
+                <v-col cols="12" md="3">
                   <v-text-field
                     label="Sacas"
                     v-model="formData.sacas"
@@ -148,15 +144,20 @@
                     item-value="value"
                     variant="outlined"
                     density="compact"
-                    :rules="[rules.required]"
+                    :rules="itensSelecionados.length > 1 ? [] : [rules.required]"
                     :disabled="!formData.blocoDestino"
-                  />
+                  >
+                    <template v-slot:selection="{ item }">
+                      <span v-if="itensSelecionados.length > 1">XXXXXXX</span>
+                      <span v-else>{{ item.title }}</span>
+                    </template>
+                  </v-select>
                 </v-col>
               </v-row>
 
               <!-- Seleção de Empilhadeira -->
               <v-row class="mb-2">
-                <v-col cols="12">
+                <v-col cols="12" md="6">
                   <v-select
                     label="Empilhadeira"
                     v-model="formData.empilhadeira"
@@ -168,11 +169,7 @@
                     :rules="[rules.required]"
                   />
                 </v-col>
-              </v-row>
-
-              <!-- Campo Opcional de Observação -->
-              <v-row class="mb-4">
-                <v-col cols="12">
+                <v-col cols="12" md="6">
                   <v-textarea
                     label="Observação"
                     v-model="formData.observacao"
@@ -188,65 +185,19 @@
               <v-row>
                 <v-col cols="12" class="text-center">
                   <v-btn
-                    color="primary"
-                    variant="elevated"
-                    @click="confirmarInclusao"
-                    prepend-icon="mdi-plus"
-                    size="large"
-                    :loading="loading"
-                    :disabled="!formValido"
-                    class="mr-3"
-                  >
-                    Adicionar Item
-                    <span v-if="itemSelecionado" class="ml-2">
-                      (1 item)
-                    </span>
-                  </v-btn>
-
-                  <v-btn
                     color="success"
                     variant="elevated"
                     @click="finalizarInclusao"
                     prepend-icon="mdi-check-all"
                     size="large"
                     :loading="loading"
-                    :disabled="itensAcumulados.length === 0"
+                    :disabled="!podeFinalizarInclusao"
                   >
                     Finalizar Inclusão
-                    <span v-if="itensAcumulados.length > 0" class="ml-2">
-                      ({{ itensAcumulados.length }} {{ itensAcumulados.length === 1 ? 'item' : 'itens' }})
+                    <span v-if="itensSelecionados.length > 0" class="ml-2">
+                      ({{ itensSelecionados.length }} {{ itensSelecionados.length === 1 ? 'item' : 'itens' }})
                     </span>
                   </v-btn>
-                </v-col>
-              </v-row>
-
-              <!-- Exibição dos Itens Adicionados -->
-              <v-row v-if="itensAcumulados.length > 0" class="mt-4">
-                <v-col cols="12">
-                  <v-card elevation="1" class="pa-3">
-                    <v-card-title class="text-h6 pa-0 mb-3">
-                      Itens Adicionados ({{ itensAcumulados.length }})
-                    </v-card-title>
-                    
-                    <div class="itens-adicionados-container">
-                      <v-chip
-                        v-for="(item, index) in itensAcumulados"
-                        :key="index"
-                        color="success"
-                        variant="outlined"
-                        size="small"
-                        class="ma-1"
-                        closable
-                        @click:close="removerItemAcumulado(index)"
-                      >
-                        {{ item.Lote }}
-                        <template v-slot:append>
-                          <v-icon size="small">mdi-weight-kilogram</v-icon>
-                          {{ formatarPeso(item.ItOsPeso) }}
-                        </template>
-                      </v-chip>
-                    </div>
-                  </v-card>
                 </v-col>
               </v-row>
             </v-card>
@@ -267,9 +218,9 @@
                     density="compact"
                     prepend-inner-icon="mdi-magnify"
                     clearable
-                    @input="pesquisarPorLote"
+                    @keyup.enter="pesquisarPorLote"
                     @clear="limparPesquisaLote"
-                    placeholder="Digite o lote..."
+                    placeholder="Digite o lote e pressione ENTER..."
                   />
                 </v-col>
                 <v-col cols="12" md="6">
@@ -280,10 +231,37 @@
                     density="compact"
                     prepend-inner-icon="mdi-magnify"
                     clearable
-                    @input="pesquisarPorTagBag"
+                    @keyup.enter="pesquisarPorTagBag"
                     @clear="limparPesquisaTagBag"
-                    placeholder="Digite a tag bag..."
+                    placeholder="Digite a tag bag e pressione ENTER..."
                   />
+                </v-col>
+              </v-row>
+
+              <!-- Informação de Seleção Múltipla -->
+              <v-row v-if="itensSelecionados.length > 0" class="mb-2">
+                <v-col cols="12">
+                  <v-alert
+                    type="info"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-0"
+                  >
+                    <div class="d-flex align-center justify-space-between">
+                      <span>
+                        <v-icon size="small" class="mr-2">mdi-checkbox-marked-circle</v-icon>
+                        {{ itensSelecionados.length }} {{ itensSelecionados.length === 1 ? 'item selecionado' : 'itens selecionados' }} para envio
+                      </span>
+                      <v-btn
+                        size="x-small"
+                        variant="text"
+                        color="primary"
+                        @click="itensSelecionados = []"
+                      >
+                        Limpar seleção
+                      </v-btn>
+                    </div>
+                  </v-alert>
                 </v-col>
               </v-row>
 
@@ -294,7 +272,7 @@
                   :items="resultadosPesquisa"
                   :loading="loadingPesquisa"
                   class="tabela-pesquisa"
-                  :items-per-page="10"
+                  :items-per-page="-1"
                   height="400px"
                   fixed-header
                   hide-default-footer
@@ -325,41 +303,43 @@
 
                   <!-- Formatação das Linhas da Tabela -->
                   <template v-slot:item="{ item }">
-                    <tr @click="selecionarItem(item)" class="cursor-pointer" :class="{ 'selected-row': isItemSelected(item) }">
-                      <td>
-                        <v-radio
-                          :model-value="itemSelecionado?.uniqueId"
-                          :value="item.uniqueId"
-                          color="primary"
-                          @click.stop="selecionarItem(item)"
+                    <tr :class="{ 'multi-selected-row': isItemMultiSelected(item) }">
+                      <td @click.stop>
+                        <!-- Checkbox para seleção múltipla -->
+                        <v-checkbox
+                          :model-value="isItemMultiSelected(item)"
+                          @click.stop="toggleMultiSelection(item)"
+                          color="success"
+                          density="compact"
+                          hide-details
                         />
                       </td>
-                      <td>
+                      <td @click.stop="toggleMultiSelection(item)" class="cursor-pointer">
                         <span class="text-blue-darken-2 font-weight-medium">
                           {{ item.lote }}
                         </span>
                       </td>
-                      <td>
+                      <td @click.stop="toggleMultiSelection(item)" class="cursor-pointer">
                         <span class="text-green-darken-2">
                           {{ item.tagBag ? item.tagBag.slice(-6) : '' }}
                         </span>
                       </td>
-                      <td>
+                      <td @click.stop="toggleMultiSelection(item)" class="cursor-pointer">
                         <span class="font-weight-bold">
                           {{ formatarPeso(item.peso) }}
                         </span>
                       </td>
-                      <td>
+                      <td @click.stop="toggleMultiSelection(item)" class="cursor-pointer">
                         <span class="text-orange-darken-2 font-weight-bold">
                           {{ formatarSacas(item.sacas) }}
                         </span>
                       </td>
-                      <td>
+                      <td @click.stop="toggleMultiSelection(item)" class="cursor-pointer">
                         <span class="text-purple-darken-2">
                           {{ item.endereco }}
                         </span>
                       </td>
-                      <td>
+                      <td @click.stop="toggleMultiSelection(item)" class="cursor-pointer">
                         <v-chip
                           :color="getStatusColor(item.status)"
                           size="small"
@@ -404,19 +384,6 @@
           prepend-icon="mdi-close"
         >
           Fechar
-        </v-btn>
-        
-        <!-- Botão adicional para fechar modal após sucesso -->
-        <v-btn
-          v-if="snackbarColor === 'success'"
-          color="white"
-          variant="elevated"
-          @click="fecharModalAposSucesso"
-          size="small"
-          prepend-icon="mdi-check"
-          class="ml-2"
-        >
-          Fechar Modal
         </v-btn>
       </template>
     </v-snackbar>
@@ -471,10 +438,7 @@ const loadingPesquisa = ref(false);
 const showSnackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('success');
-const snackbarTimeout = ref(-1); // -1 significa sem timeout automático
-
-// Armazena a resposta da API para enviar quando usuário fechar
-const ultimaResposta = ref(null);
+const snackbarTimeout = ref(3000); // Timeout padrão de 3 segundos
 
 // Campos de Pesquisa
 const pesquisaLote = ref('');
@@ -509,6 +473,7 @@ const opcoesMoega = ref([]);
 // Dados da pesquisa
 const resultadosPesquisa = ref([]);
 const itemSelecionado = ref(null);
+const itensSelecionados = ref([]); // Array para múltiplos itens selecionados
 
 // ===== CONFIGURAÇÕES DA TABELA =====
 
@@ -518,7 +483,7 @@ const headersPesquisa = [
     title: 'check',
     key: 'check',
     align: 'start',
-    sortable: true
+    sortable: false
   },
   {
     title: 'Lote',
@@ -566,12 +531,9 @@ const rules = {
 
 // ===== PROPRIEDADES COMPUTADAS =====
 
-// Verifica se o formulário está válido para submissão
-const formValido = computed(() => {
-  return formData.value.blocoDestino && 
-         formData.value.posicaoDestino && 
-         formData.value.empilhadeira &&
-         itemSelecionado.value !== null;
+// Verifica se pode finalizar (tem itens selecionados na tabela)
+const podeFinalizarInclusao = computed(() => {
+  return itensSelecionados.value.length > 0;
 });
 
 // ===== WATCHERS =====
@@ -589,6 +551,24 @@ watch(dialogVisible, (newVal) => {
 });
 
 // Atualiza o formulário quando um item é selecionado
+
+// Atualiza o campo sacas do formulário com a soma das sacas dos itens selecionados
+watch(itensSelecionados, (novosItens) => {
+  console.log('🔍 itensSelecionados mudou:', novosItens.length, 'itens');
+  
+  // Sempre soma as sacas dos itens selecionados
+  const somaSacas = novosItens.reduce((acc, item) => {
+    const sacas = parseFloat(item.sacas) || 0;
+    console.log('  → Item sacas:', item.sacas, '(parsed:', sacas, ')');
+    return acc + sacas;
+  }, 0);
+  
+  console.log('✅ Soma total de sacas:', somaSacas);
+  formData.value.sacas = novosItens.length > 0 ? somaSacas.toFixed(2) : '';
+  console.log('📝 formData.sacas atualizado para:', formData.value.sacas);
+}, { deep: true });
+
+// Mantém o watcher do itemSelecionado para os outros campos, mas não sobrescreve sacas
 watch(itemSelecionado, (newVal) => {
   if (newVal) {
     preencherFormularioComItem(newVal);
@@ -597,8 +577,8 @@ watch(itemSelecionado, (newVal) => {
     formData.value.tagBag = '';
     formData.value.lote = '';
     formData.value.peso = '';
-    formData.value.sacas = '';
     formData.value.origem = '';
+    // Não limpa formData.value.sacas aqui, pois o watcher de itensSelecionados já cuida disso
   }
 });
 
@@ -632,8 +612,8 @@ const inicializarFormulario = () => {
   pesquisaTagBag.value = '';
   resultadosPesquisa.value = [];
   itemSelecionado.value = null;
+  itensSelecionados.value = [];
   itensAcumulados.value = [];
-  ultimaResposta.value = null; // Limpa resposta anterior
   
   // Carrega dados dos selects
   carregarBlocosDestino();
@@ -806,12 +786,18 @@ const onBlocoDestinoChange = () => {
   }
   
   if (formData.value.blocoDestino === 'MOEGA') {
-    // Se selecionou "Moega", mostra todas as moegas disponíveis
-    opcoesPosicaoDestino.value = opcoesMoega.value;
+    // Se selecionou "Moega", mostra todas as moegas disponíveis com status LV
+    opcoesPosicaoDestino.value = opcoesMoega.value.filter(moega => {
+      // Encontra o endereço completo da moega para verificar o status
+      const endereco = todosEnderecos.value.find(e => e.enderCod === moega.value);
+      return endereco && endereco.enderStatus === 'LV';
+    });
   } else {
-    // Se selecionou um bloco numérico, filtra endereços que começam com o bloco
+    // Se selecionou um bloco numérico, filtra endereços que começam com o bloco E têm status LV
     const enderecosFiltrados = todosEnderecos.value.filter(item => 
-      item.enderCod && item.enderCod.startsWith(formData.value.blocoDestino)
+      item.enderCod && 
+      item.enderCod.startsWith(formData.value.blocoDestino) &&
+      item.enderStatus === 'LV'
     );
     
     // Cria opções de posição ordenadas
@@ -951,6 +937,7 @@ const limparPesquisaLote = () => {
   pesquisaLote.value = '';
   resultadosPesquisa.value = [];
   itemSelecionado.value = null;
+  itensSelecionados.value = [];
 };
 
 /**
@@ -960,6 +947,7 @@ const limparPesquisaTagBag = () => {
   pesquisaTagBag.value = '';
   resultadosPesquisa.value = [];
   itemSelecionado.value = null;
+  itensSelecionados.value = [];
 };
 
 // ===== FUNÇÕES DE MANIPULAÇÃO DE DADOS =====
@@ -974,8 +962,8 @@ const preencherFormularioComItem = (item) => {
   formData.value.peso = item?.peso ? item.peso.toString() : '';
   formData.value.origem = item?.endereco || '';
   
-  // Calcula sacas automaticamente baseado no peso
-  calcularSacasPorPeso();
+  // NÃO calcula sacas aqui - o watcher de itensSelecionados já cuida disso
+  // calcularSacasPorPeso();
 };
 
 /**
@@ -1022,14 +1010,21 @@ const calcularPesoPorSacas = () => {
 // ===== FUNÇÕES DE CONTROLE DE SELEÇÃO =====
 
 /**
- * Verifica se um item está selecionado
+ * Verifica se um item está selecionado (para seleção única)
  */
 const isItemSelected = (item) => {
   return itemSelecionado.value?.uniqueId === item.uniqueId;
 };
 
 /**
- * Seleciona ou desseleciona um item
+ * Verifica se um item está na lista de seleção múltipla
+ */
+const isItemMultiSelected = (item) => {
+  return itensSelecionados.value.some(i => i.uniqueId === item.uniqueId);
+};
+
+/**
+ * Seleciona ou desseleciona um item (para usar com botão "Adicionar Item")
  */
 const selecionarItem = (item) => {
   if (itemSelecionado.value?.uniqueId === item.uniqueId) {
@@ -1038,6 +1033,39 @@ const selecionarItem = (item) => {
   } else {
     // Seleciona o novo item
     itemSelecionado.value = item;
+  }
+};
+
+/**
+ * Alterna seleção múltipla de um item (para usar com checkbox)
+ */
+const toggleMultiSelection = (item) => {
+  const index = itensSelecionados.value.findIndex(i => i.uniqueId === item.uniqueId);
+  if (index > -1) {
+    // Remove da seleção
+    itensSelecionados.value.splice(index, 1);
+  } else {
+    // Adiciona à seleção
+    itensSelecionados.value.push(item);
+  }
+  // Atualiza o formulário baseado na quantidade de itens selecionados
+  if (itensSelecionados.value.length === 1) {
+    // Se apenas 1 item selecionado, preenche o formulário
+    preencherFormularioComItem(itensSelecionados.value[0]);
+  } else if (itensSelecionados.value.length === 0) {
+    // Se nenhum item selecionado, limpa os campos
+    formData.value.tagBag = '';
+    formData.value.lote = '';
+    formData.value.peso = '';
+    formData.value.sacas = '';
+    formData.value.origem = '';
+  } else {
+    // Se mais de 1 item selecionado, limpa apenas os campos individuais, mas NÃO limpa sacas
+    formData.value.tagBag = '';
+    formData.value.lote = '';
+    formData.value.peso = '';
+    formData.value.origem = '';
+    // formData.value.sacas permanece com a soma
   }
 };
 
@@ -1089,9 +1117,9 @@ const confirmarInclusao = () => {
   const horaFormatada = formatarHoraAtual(agora);
 
   const novoItem = {
-    OSID: "",
+    OSID: props.dadosOrdemServico.osid || "",
     ItOSItem: "",
-    OpTck: "",
+    OpTck: props.dadosOrdemServico.opTck || "",
     EmpiCod: formData.value.empilhadeira,
     MotCod: "", 
     ItOSData: dataFormatada,
@@ -1153,84 +1181,209 @@ const limparCamposParaNovoItem = () => {
 };
 
 /**
- * Finaliza a inclusão enviando todos os itens acumulados
+ * Finaliza a inclusão enviando todos os itens selecionados
  */
 const finalizarInclusao = async () => {
-  if (itensAcumulados.value.length === 0) {
+  // Verifica se há campos obrigatórios preenchidos
+  // Quando há mais de 1 item, posição destino não é obrigatória
+  const posicaoObrigatoria = itensSelecionados.value.length === 1;
+  
+  if (!formData.value.blocoDestino || (posicaoObrigatoria && !formData.value.posicaoDestino) || !formData.value.empilhadeira) {
+    const mensagemErro = posicaoObrigatoria 
+      ? 'Por favor, preencha Bloco Destino, Posição Destino e Empilhadeira antes de finalizar.'
+      : 'Por favor, preencha Bloco Destino e Empilhadeira antes de finalizar.';
+    
+    mostrarNotificacao(
+      'error',
+      'Campos obrigatórios',
+      mensagemErro,
+      null,
+      3000
+    );
     return;
   }
+
+  // Verifica se há itens selecionados
+  if (itensSelecionados.value.length === 0) {
+    mostrarNotificacao(
+      'error',
+      'Nenhum item selecionado',
+      'Selecione pelo menos um item na tabela para enviar.',
+      null,
+      3000
+    );
+    return;
+  }
+
+  // ===== VALIDAÇÃO DE BAGS DUPLICADAS =====
+  // Busca todas as tags bags já existentes nesta OS
+  const itensExistentesOS = props.dadosCompletos.filter(item => 
+    item.osid === props.dadosOrdemServico.osid
+  );
+  
+  const bagsDuplicadas = [];
+  
+  // Verifica cada item selecionado
+  itensSelecionados.value.forEach(itemSelecionado => {
+    const tagBagSelecionada = itemSelecionado.tagBag;
+    
+    // Verifica se a tag bag já existe na OS
+    const bagExistente = itensExistentesOS.find(itemExistente => 
+      itemExistente.itOsTagBag === tagBagSelecionada
+    );
+    
+    if (bagExistente) {
+      bagsDuplicadas.push({
+        tagBag: tagBagSelecionada,
+        lote: itemSelecionado.lote,
+        itemExistente: bagExistente.itOSItem
+      });
+    }
+  });
+  
+  // Se encontrou bags duplicadas, exibe erro e impede a inclusão
+  if (bagsDuplicadas.length > 0) {
+    const mensagemBags = bagsDuplicadas.map(bag => {
+      const tagAbreviada = bag.tagBag.slice(-6); // Últimos 6 dígitos
+      return `• Tag ${tagAbreviada} (Lote: ${bag.lote}) - Já existe no item ${bag.itemExistente}`;
+    }).join('<br>');
+    
+    mostrarNotificacao(
+      'error',
+      'Tags Bag Duplicadas',
+      `As seguintes tags bag já existem nesta OS:<br><br>${mensagemBags}<br><br>Não é permitido incluir bags duplicadas na mesma Ordem de Serviço.`,
+      null,
+      5000
+    );
+    return;
+  }
+  // ===== FIM DA VALIDAÇÃO =====
 
   loading.value = true;
 
   try {
-    // Gera dados no formato esperado pela API
     const agora = new Date();
     const dataFormatada = formatarDataAtual(agora);
     const horaFormatada = formatarHoraAtual(agora);
 
-    const dadosAPI = {
-      wms_os: {
-        OSID: "",
-        MotCod: "", 
-        OSOpTck: props.dadosOrdemServico.osid || "",
-        OSPrioridade: "0",
-        OSBlocoSuger: "",
-        OSData: dataFormatada,
-        OSHora: horaFormatada
-      },
-      wms_itemos: itensAcumulados.value
-    };
-    
-    // Console.log para verificar os dados sendo enviados
-    console.log('📋 Dados sendo enviados para setWMSOS:');
-    console.log('🔹 wms_os:', dadosAPI.wms_os);
-    console.log('🔹 wms_itemos:', dadosAPI.wms_itemos);
-    console.log('🔹 Total de itens:', dadosAPI.wms_itemos.length);
-    console.log('🔹 Payload completo:', dadosAPI);
-    
-    // Envia os dados para a API
-    const response = await wmSOSStore.WMSOS(dadosAPI);
-    
-    console.log('✅ Resposta da API setWMSOS:', response);
-    
-    // Verifica se a resposta foi bem sucedida
-    if (response && response.code === 600 && response.type === 'OK') {
-      // Armazena a resposta para enviar quando usuário fechar
-      ultimaResposta.value = response;
-      
-      // Exibe mensagem de sucesso para o usuário (sem timeout - usuário deve fechar)
-      mostrarNotificacao(
-        'success', 
-        response.message, 
-        `Itens processados: ${itensAcumulados.value.length}`,
-        response.data,
-        -1
-      );
-      
-      // NÃO emite evento nem fecha modal automaticamente - deixa o usuário decidir
-    } else {
-      // Se a resposta não foi bem sucedida (sem timeout - usuário deve fechar)
-      ultimaResposta.value = response;
-      
-      mostrarNotificacao(
-        'error',
-        'Erro ao processar dados',
-        response?.message || 'Erro desconhecido',
-        null,
-        -1
-      );
+    // ===== CÓDIGO NOVO: APENAS FORMATA OS ITENS SEM ENVIAR PARA API =====
+    // Busca todos os itens existentes da OS atual
+    const itensExistentes = props.dadosCompletos.filter(item => 
+      item.osid === props.dadosOrdemServico.osid
+    );
+
+    // Descobre o maior número de item existente
+    let maiorNumeroItem = 0;
+    if (itensExistentes.length > 0) {
+      maiorNumeroItem = Math.max(...itensExistentes.map(item => {
+        const numItem = parseInt(item.itOSItem) || 0;
+        return numItem;
+      }));
     }
+
+    console.log(`📊 Maior item existente: ${maiorNumeroItem}`);
+    console.log(`📊 Total de itens existentes: ${itensExistentes.length}`);
+
+    // Mapeia os itens existentes para o formato correto (SEM zeros à esquerda)
+    const itensExistentesFormatados = itensExistentes.map(item => {
+      const numeroItem = parseInt(item.itOSItem) || 0; // Converte para número
+      
+      return {
+        osid: item.osid || "",
+        itOSItem: numeroItem.toString(), // Converte número para string SEM zeros
+        opTck: item.opTck || props.dadosOrdemServico.opTck || "",
+        empiCod: item.empiCod || "",
+        motCod: item.motCod || "",
+        itOSData: item.itOSData || "",
+        itOSHora: item.itOSHora || "",
+        itOsTagBag: item.itOsTagBag || "",
+        itOsOrigem: item.itOsOrigem || "",
+        itOsTagOrigem: item.itOsTagOrigem || "",
+        itOsDestino: item.itOsDestino || "",
+        itOsTagDestino: item.itOsTagDestino || "",
+        itOSStatus: item.itOSStatus || "",
+        lote: item.lote || "",
+        itOsObs: item.itOsObs || "",
+        itOsPeso: parseFloat(item.itOsPeso) || 0,
+        itOsPesoSoltar: parseFloat(item.itOsPesoSoltar) || 0
+      };
+    });
+
+    // Monta os novos itens com numeração sequencial (formato do banco de dados)
+    const novosItens = itensSelecionados.value.map((item, index) => {
+      const numeroItem = maiorNumeroItem + index + 1;
+      
+      // Se houver mais de 1 item selecionado:
+      // - Para moega: usa a posição completa (ex: M001, M002)
+      // - Para endereço normal: usa apenas o bloco destino (primeiros 3 caracteres)
+      const destinoFinal = itensSelecionados.value.length > 1 
+        ? (formData.value.blocoDestino === 'MOEGA' ? formData.value.posicaoDestino : formData.value.blocoDestino)
+        : formData.value.posicaoDestino;
+      
+      return {
+        osid: props.dadosOrdemServico.osid || "",
+        itOSItem: numeroItem.toString(), // Número convertido para string SEM zeros
+        opTck: props.dadosOrdemServico.opTck || "",
+        empiCod: formData.value.empilhadeira,
+        motCod: "", 
+        itOSData: dataFormatada.split('/').reverse().join(''),
+        itOSHora: horaFormatada.replace(/:/g, '') + '00',
+        itOsTagBag: item.tagBag || "",
+        itOsOrigem: item.endereco || "",
+        itOsTagOrigem: "",
+        itOsDestino: destinoFinal,
+        itOsTagDestino: formData.value.blocoDestino === 'MOEGA' ? formData.value.posicaoDestino : "",
+        itOSStatus: "AB",
+        lote: item.lote || "",
+        itOsObs: formData.value.observacao || "",
+        itOsPeso: parseFloat(item.peso) || 0,
+        itOsPesoSoltar: 0
+      };
+    });
+
+    console.log(`📊 Quantidade de itens selecionados: ${itensSelecionados.value.length}`);
+    console.log(`📍 Destino usado: ${itensSelecionados.value.length > 1 ? 'Apenas Bloco' : 'Posição Completa'}`);
+    
+    // Combina itens existentes + novos itens
+    const todosItens = [...itensExistentesFormatados, ...novosItens];
+
+    console.log(`📊 Itens existentes formatados: ${itensExistentesFormatados.length}`);
+    console.log(`➕ Novos itens formatados: ${novosItens.length}`);
+    console.log(`📦 Total de itens para enviar: ${todosItens.length}`);
+    console.log('📋 Exemplo de item formatado:', todosItens[0]);
+    console.log('📋 Todos os itens completos:', JSON.stringify(todosItens, null, 2));
+    
+    // Exibe mensagem de sucesso
+    mostrarNotificacao(
+      'success',
+      'Itens incluídos localmente!',
+      `${novosItens.length} ${novosItens.length === 1 ? 'item adicionado' : 'itens adicionados'}.<br>Total de itens na OS: ${todosItens.length}<br>Clique em "Concluir Alterações" para salvar.`,
+      null,
+      3000
+    );
+    
+    // Emite evento com TODOS os itens (existentes + novos)
+    emit('confirmar', {
+      type: 'incluir',
+      novosItens: novosItens, // Apenas os novos para aplicar localmente
+      todosItens: todosItens  // Todos para enviar na API
+    });
+    
+    // Fecha o modal automaticamente após 3 segundos
+    setTimeout(() => {
+      fecharModal();
+    }, 3000);
     
   } catch (error) {
-    console.error('❌ Erro ao enviar dados para setWMSOS:', error);
+    console.error('❌ Erro ao processar inclusão:', error);
     
-    // Exibe mensagem de erro para o usuário (sem timeout - usuário deve fechar)
+    // Exibe mensagem de erro para o usuário
     mostrarNotificacao(
       'error',
-      'Erro ao enviar dados',
-      error?.message || 'Erro de comunicação com o servidor',
+      'Erro ao processar inclusão',
+      error?.message || 'Erro desconhecido',
       null,
-      -1
+      3000
     );
   } finally {
     loading.value = false;
@@ -1250,21 +1403,6 @@ const removerItemAcumulado = (index) => {
 const fecharModal = () => {
   dialogVisible.value = false;
   showSnackbar.value = false; // Também fecha qualquer notificação ativa
-  ultimaResposta.value = null; // Limpa resposta armazenada
-};
-
-/**
- * Fecha o modal após sucesso, mantendo a notificação visível por um momento
- */
-const fecharModalAposSucesso = () => {
-  showSnackbar.value = false;
-  
-  // Emite o evento para o componente pai com a resposta armazenada
-  if (ultimaResposta.value) {
-    emit('confirmar', ultimaResposta.value);
-  }
-  
-  fecharModal();
 };
 
 // ===== LIFECYCLE HOOKS =====
@@ -1313,6 +1451,14 @@ onMounted(() => {
 
 .selected-row:hover {
   background-color: #bbdefb !important;
+}
+
+.multi-selected-row {
+  background-color: #e8f5e9 !important;
+}
+
+.multi-selected-row:hover {
+  background-color: #c8e6c9 !important;
 }
 
 /* Containers de Status */

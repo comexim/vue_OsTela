@@ -13,6 +13,7 @@
             prepend-icon="mdi-file-document-outline"
             variant="outlined"
             density="compact"
+            autocomplete="off"
           ></v-text-field>
         </div>
 
@@ -24,7 +25,48 @@
             prepend-icon="mdi-cube-outline"
             variant="outlined"
             density="compact"
+            autocomplete="off"
           ></v-text-field>
+        </div>
+
+        <!-- Botão Buscar -->
+        <div class="d-flex justify-center mb-4">
+          <v-btn
+            color="orange"
+            variant="flat"
+            prepend-icon="mdi-magnify"
+            :loading="loadingBuscar"
+            :disabled="!remocao.op || !remocao.blocoSugerido"
+            @click="buscarDados"
+          >
+            Buscar
+          </v-btn>
+        </div>
+
+        <!-- Tabela de resultado -->
+        <div class="mb-4" v-if="dadosEmpenho.length > 0">
+          <v-divider class="mb-3"></v-divider>
+          <div class="table-scroll">
+            <v-data-table
+              :headers="headersEmpenho"
+              :items="dadosEmpenho"
+              density="compact"
+              class="elevation-1 mb-3"
+              hide-default-footer
+              :items-per-page="-1"
+            >
+              <template v-slot:top>
+                <v-toolbar flat density="compact">
+                  <v-toolbar-title class="text-subtitle-2">
+                    OP: {{ remocao.op }} - Bloco: {{ remocao.blocoSugerido }} | Sacas: {{ totalSacas.toFixed(2) }}
+                  </v-toolbar-title>
+                </v-toolbar>
+              </template>
+              <template v-slot:item.sacas="{ item }">
+                {{ ((parseFloat(item.itOsPeso) || 0) / 59).toFixed(2) }}
+              </template>
+            </v-data-table>
+          </div>
         </div>
 
         <!-- Empilhadeiras -->
@@ -93,9 +135,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { empilhadeira } from '../../../stores/Consultas/getEmpilhadeira';
-import { ordemRemocao } from '../../../stores/Consultas/postOrdemRemocao';
+import { WMSOS } from '../../../stores/Consultas/setWMSOS';
+import { getEmpenhoProd } from '../../../stores/Consultas/getEmpenhoProd';
 
 // Props
 const props = defineProps({
@@ -114,7 +157,8 @@ const emit = defineEmits(['ordem-enviada']);
 
 // Stores
 const empilhadeiraStore = empilhadeira();
-const ordemRemocaoStore = ordemRemocao();
+const WMSOSStore = WMSOS();
+const getEmpenhoProdStore = getEmpenhoProd();
 
 // Estados do formulário
 const remocao = ref({
@@ -125,6 +169,15 @@ const remocao = ref({
 
 // Estados de loading
 const loadingEmpilhadeiras = ref(false);
+const loadingBuscar = ref(false);
+
+// Dados buscados
+const dadosEmpenho = ref([]);
+
+// Total de sacas
+const totalSacas = computed(() =>
+  dadosEmpenho.value.reduce((acc, item) => acc + ((parseFloat(item.itOsPeso) || 0) / 59), 0)
+);
 
 // Estado para mensagem de resultado
 const mensagemResultado = ref({
@@ -136,6 +189,39 @@ const mensagemResultado = ref({
 
 // Dados
 const empilhadeiras = ref([]);
+
+const headersEmpenho = ref([
+  { title: 'Item', key: 'itOSItem', sortable: false },
+  { title: 'Lote', key: 'lote', sortable: false },
+  { title: 'Sacas', key: 'sacas', sortable: false }
+]);
+
+// Buscar dados da API
+const buscarDados = async () => {
+  dadosEmpenho.value = [];
+  loadingBuscar.value = true;
+  try {
+    getEmpenhoProdStore.$reset();
+    const resposta = await getEmpenhoProdStore.getEmpenhoProd({
+      op: remocao.value.op,
+      sugerido: remocao.value.blocoSugerido
+    });
+    dadosEmpenho.value = Array.isArray(resposta?.retorno) ? resposta.retorno : [];
+    if (dadosEmpenho.value.length === 0) {
+      mensagemResultado.value = {
+        mostrar: true,
+        tipo: 'error',
+        titulo: 'OP não encontrada!',
+        texto: `Não foram encontrados dados para a OP: ${remocao.value.op}`
+      };
+    }
+  } catch (error) {
+    console.error('Erro ao buscar dados:', error);
+    dadosEmpenho.value = [];
+  } finally {
+    loadingBuscar.value = false;
+  }
+};
 
 // Função para enviar ordem de remoção
 const enviarOrdemRemocao = async () => {
@@ -150,62 +236,80 @@ const enviarOrdemRemocao = async () => {
     return;
   }
   
-  const { data, hora } = getDataHoraAtual(); // Obtém data e hora atuais
-
-  const payload = {
-    wms_os: {
-      OSID: remocao.value.op, 
-      MotCod: "wallace", 
-      OSOpTck: remocao.value.op,
-      OSPrioridade: "0",
-      OSBlocoSuger: remocao.value.blocoSugerido,
-      OSData: data, 
-      OSHora: hora 
-    },
-    wms_itemos: [
-      {
+  try {
+    const dadosOE = dadosEmpenho.value;
+    
+    if (!dadosOE || dadosOE.length === 0) {
+      mensagemResultado.value = {
+        mostrar: true,
+        tipo: 'error',
+        titulo: 'OP não encontrada!',
+        texto: `Nenhum dado carregado. Clique em Buscar primeiro.`
+      };
+      return;
+    }
+    
+    const primeiroItem = dadosOE[0];
+    
+    // Obtém a data e hora atuais
+    const agora = new Date();
+    const ano = agora.getFullYear();
+    const mes = String(agora.getMonth() + 1).padStart(2, '0');
+    const dia = String(agora.getDate()).padStart(2, '0');
+    const horas = String(agora.getHours()).padStart(2, '0');
+    const minutos = String(agora.getMinutes()).padStart(2, '0');
+    
+    const dataAtual = `${ano}${mes}${dia}`;
+    const horaAtual = `${horas}:${minutos}`;
+    
+    const payload = {
+      wms_os: {
         OSID: "",
-        ItOSItem: "",
+        MotCod: "", 
+        OSOpTck: remocao.value.op,
+        OSPrioridade: primeiroItem.osprioridade || "0",
+        OSBlocoSuger: remocao.value.blocoSugerido ,
+        OSData: dataAtual, 
+        OSHora: horaAtual,
+        OSStatus: "AT"
+      },
+      wms_itemos: dadosOE.map(item => ({
+        OSID: "",
+        ItOSItem: item.itOSItem || "",
         OpTck: remocao.value.op,
         EmpiCod: remocao.value.empilhadeira,
-        MotCod: "",
-        ItOSData: data, 
-        ItOSHora: hora, 
-        ItOsTagBag: "",
-        ItOsOrigem: "",
-        ItOsTagOrigem: "",
-        ItOsDestino: remocao.value.blocoSugerido,
-        ItOsTagDestino: "",
-        ItOSStatus: "",
-        Lote: "",
-        itOsObs: ""
-      }
-    ]
-  };
-  
-  try {
-    console.log("payload da operação: ", payload);
-    const response = await ordemRemocaoStore.ordemRemocao(payload);
-    console.log('Resposta da API: ', response);
+        MotCod: item.motCod || "",
+        ItOSData: dataAtual,
+        ItOSHora: horaAtual || "", 
+        ItOsTagBag: item.itOsTagBag || "",
+        ItOsOrigem: item.itOsOrigem || "",
+        ItOsTagOrigem: item.itOsTagOrigem || "",
+        ItOsDestino: remocao.value.blocoSugerido || item.itOsDestino,
+        ItOsTagDestino: item.itOsTagDestino || "",
+        ItOSStatus: "AB",
+        Lote: item.lote || item.itOSLote || "",
+        ItOsPeso: item.itOsPeso,
+        ItOsObs: item.itOsObs || ""
+      }))
+    };
     
-    // Verifica se a resposta foi bem-sucedida
+    const response = await WMSOSStore.WMSOS(payload);
+    
     if (response && response.code === 600) {
-      // Exibe mensagem de sucesso
       mensagemResultado.value = {
         mostrar: true,
         tipo: 'success',
         titulo: 'Sucesso!',
-        texto: `${response.message} - Código: ${response.code}. Ordem: ${response.data}`
+        texto: `${response.message} - Código: ${response.code}. Ordem: ${response.data}. Total de itens: ${payload.wms_itemos.length}`
       };
       
-      // Limpa o formulário após sucesso
+      dadosEmpenho.value = [];
       remocao.value = {
         op: '',
         blocoSugerido: '',
         empilhadeira: null
       };
     } else {
-      // Exibe mensagem de erro se o código não for 600
       mensagemResultado.value = {
         mostrar: true,
         tipo: 'error',
@@ -214,31 +318,27 @@ const enviarOrdemRemocao = async () => {
       };
     }
     
-    // Emite evento para o componente pai
     emit('ordem-enviada', { tipo: 'operacao', response, payload });
     
   } catch (error) {
     console.error('Erro ao enviar operação: ', error);
     
-    // Exibe mensagem de erro
     mensagemResultado.value = {
       mostrar: true,
       tipo: 'error',
       titulo: 'Erro de Comunicação!',
-      texto: 'Não foi possível enviar a operação. Tente novamente.'
+      texto: error.message || 'Não foi possível enviar a operação. Tente novamente.'
     };
     
-    emit('ordem-enviada', { tipo: 'operacao', error, payload });
+    emit('ordem-enviada', { tipo: 'operacao', error });
   }
 };
 
-// Função para carregar empilhadeiras
 const carregarEmpilhadeiras = async () => {
   loadingEmpilhadeiras.value = true;
   try {
     const dados = await empilhadeiraStore.empilhadeira();
     empilhadeiras.value = Array.isArray(dados) ? dados : [];
-    console.log('Empilhadeiras carregadas:', empilhadeiras.value);
   } catch (error) {
     console.error('Erro ao carregar empilhadeiras:', error);
     empilhadeiras.value = [];
@@ -246,8 +346,6 @@ const carregarEmpilhadeiras = async () => {
     loadingEmpilhadeiras.value = false;
   }
 };
-
-// Lifecycle hooks
 onMounted(() => {
   carregarEmpilhadeiras();
 });

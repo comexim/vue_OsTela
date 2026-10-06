@@ -1,5 +1,4 @@
-<template>
-  <BasePage>
+﻿<template>
     <v-container fluid>
       <v-row>
         <v-col cols="12">
@@ -20,30 +19,76 @@
             md="4" 
             lg="3"
           >
-            <v-card
-              :color="selectedMoega === moega.enderCod ? 'primary' : 'white'"
-              :elevation="selectedMoega === moega.enderCod ? 8 : 2"
-              class="moega-card"
-              hover
-              @click="selectMoega(moega.enderCod)"
+            <v-menu
+              :open-on-hover="true"
+              location="top"
+              :close-delay="200"
             >
-              <v-card-title class="text-center">
-                <v-icon 
-                  :color="selectedMoega === moega.enderCod ? 'white' : 'primary'" 
-                  class="mr-2"
+              <template v-slot:activator="{ props }">
+                <v-card
+                  v-bind="props"
+                  :color="selectedMoega === moega.enderCod ? 'primary' : 'white'"
+                  :elevation="selectedMoega === moega.enderCod ? 8 : 2"
+                  class="moega-card"
+                  hover
+                  @click="selectMoega(moega.enderCod)"
+                  @mouseenter="loadOsPreview(moega.enderCod)"
                 >
-                  mdi-warehouse
-                </v-icon>
-                <span :class="selectedMoega === moega.enderCod ? 'text-white' : 'text-primary'">
-                  {{ moega.enderCod }}
-                </span>
-              </v-card-title>
-              <v-card-text class="text-center">
-                <span :class="selectedMoega === moega.enderCod ? 'text-white' : 'text-grey-darken-1'">
-                  {{ moega.descricao || 'Moega' }}
-                </span>
-              </v-card-text>
-            </v-card>
+                  <v-card-title class="text-center">
+                    <v-icon 
+                      :color="selectedMoega === moega.enderCod ? 'white' : 'primary'" 
+                      class="mr-2"
+                    >
+                      mdi-warehouse
+                    </v-icon>
+                    <span :class="selectedMoega === moega.enderCod ? 'text-white' : 'text-primary'">
+                      {{ moega.enderCod }}
+                    </span>
+                  </v-card-title>
+                  <v-card-text class="text-center">
+                    <span :class="selectedMoega === moega.enderCod ? 'text-white' : 'text-grey-darken-1'">
+                      {{ moega.descricao || 'Moega' }}
+                    </span>
+                  </v-card-text>
+                </v-card>
+              </template>
+
+              <v-card min-width="250" max-width="350" class="os-preview-card">
+                <v-card-title class="text-subtitle-1 bg-primary text-white py-2">
+                  <v-icon size="small" class="mr-1">mdi-clipboard-text</v-icon>
+                  OSs - {{ moega.enderCod }}
+                </v-card-title>
+                <v-card-text class="pa-2">
+                  <!-- Loading -->
+                  <div v-if="loadingOsPreview[moega.enderCod]" class="text-center py-2">
+                    <v-progress-circular 
+                      indeterminate 
+                      color="primary" 
+                      size="24"
+                    ></v-progress-circular>
+                  </div>
+
+                  <!-- Lista de OSs -->
+                  <div v-else-if="osPreviewData[moega.enderCod] && osPreviewData[moega.enderCod].length > 0">
+                    <v-chip
+                      v-for="os in osPreviewData[moega.enderCod]"
+                      :key="`preview-${moega.enderCod}-${os}`"
+                      size="small"
+                      color="primary"
+                      variant="flat"
+                      class="ma-1"
+                    >
+                      {{ os }}
+                    </v-chip>
+                  </div>
+
+                  <!-- Nenhuma OS -->
+                  <div v-else class="text-center text-caption text-grey py-2">
+                    Nenhuma OS encontrada
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-menu>
           </v-col>
         </v-row>
         
@@ -194,7 +239,6 @@
       </template>
     </v-snackbar>
     </v-container>
-  </BasePage>
 </template>
 
 <script>
@@ -228,6 +272,10 @@ export default {
     const showSnackbar = ref(false)
     const snackbarMessage = ref('')
     const snackbarColor = ref('success')
+    
+    // Preview de OSs no hover
+    const osPreviewData = ref({})
+    const loadingOsPreview = ref({})
 
     // Methods
     const loadMoegas = async () => {
@@ -259,6 +307,33 @@ export default {
         moegasList.value = []
       } finally {
         loadingMoegas.value = false
+      }
+    }
+
+    const loadOsPreview = async (moegaId) => {
+      // Se já carregou os dados desta moega, não precisa carregar novamente
+      if (osPreviewData.value[moegaId]) {
+        return
+      }
+
+      try {
+        loadingOsPreview.value[moegaId] = true
+        
+        const response = await osMoegaStore.movEnder({ moega: moegaId })
+        
+        let osList = []
+        if (response && Array.isArray(response)) {
+          osList = response.map(item => item.osid).filter(Boolean)
+        } else if (response && response.data && Array.isArray(response.data)) {
+          osList = response.data.map(item => item.osid).filter(Boolean)
+        }
+        
+        osPreviewData.value[moegaId] = osList
+      } catch (error) {
+        console.error('Erro ao carregar preview de OSs:', error)
+        osPreviewData.value[moegaId] = []
+      } finally {
+        loadingOsPreview.value[moegaId] = false
       }
     }
 
@@ -345,6 +420,15 @@ export default {
           showMessage('Alterações salvas com sucesso', 'success')
           // Atualiza os dados originais
           osData.value = editableOsList.value.map(osId => ({ osid: osId }))
+          
+          // Atualiza o preview da moega no hover
+          osPreviewData.value[selectedMoega.value] = [...editableOsList.value]
+          
+          // Fecha o dialog e recarrega as moegas
+          setTimeout(() => {
+            closeOSDialog()
+            loadMoegas()
+          }, 500)
         } else {
           showMessage(response?.message || 'Erro ao salvar alterações', 'error')
         }
@@ -389,13 +473,16 @@ export default {
       showSnackbar,
       snackbarMessage,
       snackbarColor,
+      osPreviewData,
+      loadingOsPreview,
       
       // Methods
       selectMoega,
       closeOSDialog,
       addNewOs,
       removeOs,
-      saveChanges
+      saveChanges,
+      loadOsPreview
     }
   }
 }
@@ -413,5 +500,17 @@ export default {
 
 .v-card-title {
   word-break: break-word;
+}
+
+.os-preview-card {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.os-preview-card .v-card-text {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 </style>
