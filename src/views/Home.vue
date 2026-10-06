@@ -6,7 +6,7 @@
 </template>
 
 <script setup>
-// Adicione lógica do dashboard aqui se necessário
+// Adicione lógica do dashboard aqui se necessário//teste
 </script>
 
 <style scoped>
